@@ -1,8 +1,10 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useState } from 'react';
 
-type Service = { id: string; name: string; price: number; duration_minutes: number };
+const CityMap = dynamic(() => import('@/components/CityMap'), { ssr: false });
+
 type Station = { id: string; name: string; address: string; rating: number; lat: number; lng: number; station_services: Array<{ id: string; service_id: string; price: number; duration_minutes: number; services: { id: string; name: string } | null }> };
 
 declare global { interface Window { Telegram?: { WebApp?: { initData?: string; ready?: () => void; expand?: () => void } } } }
@@ -26,7 +28,7 @@ export default function Home() {
     <header className="hero"><div className="brand">НА ПОСТ</div><div className="sub">Автосервисы Новосибирска — цена, рейтинг и свободные слоты</div></header>
     <div className="content">
       <div className="search"><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Что нужно сделать? Например: замена масла"/><button onClick={() => undefined}>Найти</button></div>
-      <section className="map"><div className="map-title">2ГИС · Новосибирск</div><div className="map-placeholder">Карта подключается через MapGL после добавления TWOGIS_MAPGL_KEY</div></section>
+      <section className="map"><div className="map-title">Карта Новосибирска · OpenFreeMap</div><CityMap stations={filtered.map(s => ({ id: s.id, name: s.name, lat: s.lat, lng: s.lng }))}/></section>
       {error && <div className="card error">{error}</div>}
       {loading ? <div className="card">Загружаем СТО…</div> : <section>{filtered.map(s => <article className="card" key={s.id} onClick={() => setSelected(s)}>
         <div className="status"><span className="green">Свободные посты</span></div><h2>{s.name}</h2><div className="muted">{s.address}</div><p>★ {s.rating ?? 0}</p>
