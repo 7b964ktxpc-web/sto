@@ -13,7 +13,7 @@ export async function GET(request: Request) {
 
   const { data: businesses, error } = await db
     .from('businesses')
-    .select('id,name,phone,rating,review_count,description')
+    .select('id,name,slug,phone,rating,review_count,description,logo_url,photos')
     .eq('status', 'active')
     .is('deleted_at', null)
     .order('rating', { ascending: false });
@@ -26,36 +26,43 @@ export async function GET(request: Request) {
   const ids = (businesses ?? []).map((business) => business.id);
   if (!ids.length) return NextResponse.json({ stations: [] });
 
-  const [{ data: locations, error: locationError }, { data: businessServices, error: serviceError }] = await Promise.all([
-    db
-      .from('business_locations')
-      .select('business_id,address,location,is_primary')
-      .in('business_id', ids)
-      .eq('is_primary', true),
-    db
-      .from('business_services')
-      .select('id,business_id,service_id,price,duration_minutes,is_active,service:services(id,name)')
-      .in('business_id', ids)
-      .eq('is_active', true),
+  const [locationsResult, servicesResult] = await Promise.all([
+    db.from('business_locations').select('business_id,address,location,is_primary').in('business_id', ids).eq('is_primary', true),
+    db.from('business_services').select('id,business_id,service_id,price,min_price,duration_minutes,is_active').in('business_id', ids).eq('is_active', true),
   ]);
 
-  if (locationError) {
-    console.error('stations locations query', locationError);
+  if (locationsResult.error) {
+    console.error('stations locations query', locationsResult.error);
     return NextResponse.json({ error: 'STATIONS_LOCATION_LOAD_FAILED' }, { status: 500 });
   }
-  if (serviceError) {
-    console.error('stations services query', serviceError);
+  if (servicesResult.error) {
+    console.error('stations services query', servicesResult.error);
     return NextResponse.json({ error: 'STATIONS_SERVICES_LOAD_FAILED' }, { status: 500 });
   }
 
-  const locationByBusiness = new Map<string, { address: string | null; location: unknown }>();
-  for (const location of locations ?? []) {
-    locationByBusiness.set(location.business_id, location);
+  const serviceIds = [...new Set((servicesResult.data ?? []).map((item) => item.service_id))];
+  const { data: services, error: serviceCatalogError } = serviceIds.length
+    ? await db.from('services').select('id,name,slug,description,is_active').in('id', serviceIds).eq('is_active', true)
+    : { data: [], error: null };
+
+  if (serviceCatalogError) {
+    console.error('stations service catalog query', serviceCatalogError);
+    return NextResponse.json({ error: 'STATIONS_SERVICE_CATALOG_LOAD_FAILED' }, { status: 500 });
   }
 
-  const serviceByBusiness = new Map<string, typeof businessServices>();
-  for (const item of businessServices ?? []) {
-    serviceByBusiness.set(item.business_id, [...(serviceByBusiness.get(item.business_id) ?? []), item]);
+  const locationByBusiness = new Map<string, { address: string | null; location: unknown }>();
+  for (const location of locationsResult.data ?? []) locationByBusiness.set(location.business_id, location);
+
+  const serviceById = new Map<string, (typeof services)[number]>();
+  for (const item of services ?? []) serviceById.set(item.id, item);
+
+  const serviceByBusiness = new Map<string, Array<Record<string, unknown>>>();
+  for (const item of servicesResult.data ?? []) {
+    const catalog = serviceById.get(item.service_id);
+    if (!catalog) continue;
+    const list = serviceByBusiness.get(item.business_id) ?? [];
+    list.push({ ...item, service: catalog });
+    serviceByBusiness.set(item.business_id, list);
   }
 
   const stations = (businesses ?? [])
@@ -76,11 +83,12 @@ export async function GET(request: Request) {
         !query ||
         station.name.toLowerCase().includes(query) ||
         station.address.toLowerCase().includes(query) ||
-        station.station_services.some((item) => item.service?.name?.toLowerCase().includes(query));
+        station.station_services.some((item) => String(item.service && typeof item.service === 'object' && 'name' in item.service ? item.service.name : '').toLowerCase().includes(query));
       const matchesService =
         !service ||
-        station.station_services.some(
-          (item) => item.service_id === service || item.service?.name?.toLowerCase().includes(service),
+        station.station_services.some((item) =>
+          item.service_id === service ||
+          String(item.service && typeof item.service === 'object' && 'name' in item.service ? item.service.name : '').toLowerCase().includes(service),
         );
       return matchesQuery && matchesService;
     });
@@ -98,7 +106,6 @@ function parsePoint(value: unknown): { lat: number; lng: number } | null {
       if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
     }
   }
-
   const text = String(value);
   const match = text.match(/POINT\s*\(([-\d.]+)\s+([-\d.]+)\)/i);
   if (!match) return null;
