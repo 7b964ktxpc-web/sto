@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 
 type Business={id:string;name:string;slug:string;status:string;phone:string|null;email:string|null;address:string|null;description:string|null};
-const statusLabels:Record<string,string>={active:'Активна',pending:'На модерации',blocked:'Заблокирована',suspended:'Приостановлена'};
+const statusLabels:Record<string,string>={active:'Активна',pending:'На модерации',suspended:'Приостановлена',rejected:'Отклонена'};
 
 export default function EditBusinessPage(){
  const {id}=useParams<{id:string}>(); const router=useRouter();
