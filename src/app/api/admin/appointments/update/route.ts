@@ -26,7 +26,7 @@ export async function PATCH(request: Request) {
     if (updated.error) throw updated.error;
     const action = patch.status === 'CANCELLED' ? 'appointment.cancelled' : (patch.starts_at ? 'appointment.rescheduled' : 'appointment.updated');
     await db.from('appointment_events').insert({ appointment_id: id, actor_user_id: auth.user.id, event_type: action, payload: { patch } });
-    await db.from('audit_logs').insert({ actor_user_id: auth.user.id, business_id: before.data.business_id, action, entity_type: 'appointment', entity_id: id, before_data: before.data, after_data: updated.data, ip: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null, user_agent: request.headers.get('user-agent') });
+    await db.from('audit_logs').insert({ actor_user_id: auth.user.id, business_id: before.data.business_id, action, entity_type: 'appointment', entity_id: id, reason: 'Admin appointment update', metadata: { before: before.data, after: updated.data, patch } });
     const notificationType = patch.status === 'CANCELLED' ? 'BOOKING_CANCELLED' : (patch.starts_at ? 'BOOKING_CHANGED' : null);
     if (notificationType) {
       await db.from('notifications').insert({ user_id: before.data.user_id, notification_type: notificationType, channel: 'WEB', title: notificationType === 'BOOKING_CANCELLED' ? 'Запись отменена' : 'Запись изменена', body: notificationType === 'BOOKING_CANCELLED' ? 'Администратор отменил вашу запись.' : 'Администратор изменил детали вашей записи.', payload: { appointment_id: id } });
