@@ -2,12 +2,14 @@
 
 import { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { ArrowLeft, Lock, MessageCircle, UserRound } from 'lucide-react';
 
 function AuthForm() {
   const searchParams = useSearchParams();
   const returnTo = searchParams.get('returnTo') || '/account';
   const requestedMode = searchParams.get('mode');
-  const [mode, setMode] = useState<'login'|'signup'>(requestedMode === 'signup' ? 'signup' : 'login');
+  const isBookingReturn = returnTo.includes('marketplace');
+  const [mode, setMode] = useState<'login' | 'signup'>(requestedMode === 'signup' ? 'signup' : 'login');
   const [identifier, setIdentifier] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
@@ -15,16 +17,31 @@ function AuthForm() {
   const [error, setError] = useState('');
 
   async function submit(e: React.FormEvent) {
-    e.preventDefault(); setBusy(true); setError('');
+    e.preventDefault();
+    setBusy(true);
+    setError('');
     const signup = mode === 'signup';
     const payload = signup
       ? { email: identifier.includes('@') ? identifier : undefined, phone: identifier.includes('@') ? undefined : identifier, display_name: name, password }
       : { identifier, password };
+
     try {
-      const res = await fetch(signup ? '/api/auth/signup' : '/api/auth/login', { method: 'POST', headers: {'content-type':'application/json'}, body: JSON.stringify(payload) });
+      const res = await fetch(signup ? '/api/auth/signup' : '/api/auth/login', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error === 'USER_ALREADY_EXISTS' ? 'Пользователь уже зарегистрирован.' : data.error === 'SUPABASE_NOT_CONFIGURED' ? 'Авторизация временно недоступна. Проверьте настройки Supabase.' : data.error === 'INVALID_SIGNUP_DATA' ? 'Укажите email или телефон и пароль не короче 8 символов.' : 'Не удалось выполнить вход. Проверьте данные.');
+        setError(
+          data.error === 'USER_ALREADY_EXISTS'
+            ? 'Пользователь уже зарегистрирован.'
+            : data.error === 'SUPABASE_NOT_CONFIGURED'
+              ? 'Авторизация временно недоступна.'
+              : data.error === 'INVALID_SIGNUP_DATA'
+                ? 'Укажите email или телефон и пароль не короче 8 символов.'
+                : 'Не удалось выполнить вход. Проверьте данные.',
+        );
         setBusy(false);
         return;
       }
@@ -35,9 +52,63 @@ function AuthForm() {
     }
   }
 
-  return <main className="page"><header className="hero"><div className="hero-inner"><span className="eyebrow">STO NSK · Авторизация</span><h1>{mode === 'login' ? 'Войдите в STO NSK' : 'Создайте аккаунт'}</h1><p>Сохраняйте автомобили, записи, избранные СТО и уведомления в одном аккаунте.</p></div></header><div className="content" style={{maxWidth:620}}><section className="card"><div style={{display:'flex',gap:8,marginBottom:18}}><button type="button" className={mode==='login'?'primary':'pill'} onClick={()=>setMode('login')}>Войти</button><button type="button" className={mode==='signup'?'primary':'pill'} onClick={()=>setMode('signup')}>Регистрация</button></div><form onSubmit={submit} style={{display:'grid',gap:12}}>{mode==='signup'&&<input placeholder="Имя" value={name} onChange={e=>setName(e.target.value)} required /> }<input placeholder="Email или телефон" value={identifier} onChange={e=>setIdentifier(e.target.value)} required /><input type="password" minLength={8} placeholder="Пароль (минимум 8 символов)" value={password} onChange={e=>setPassword(e.target.value)} required />{error&&<div className="error">{error}</div>}<button className="primary" disabled={busy}>{busy?'Подождите…':mode==='login'?'Войти':'Создать аккаунт'}</button></form><div className="section"><div className="feature"><strong>Telegram</strong><span className="muted">Можно использовать Telegram Mini App для входа без пароля.</span><a href="/tg" className="primary" style={{display:'inline-block',textDecoration:'none',marginTop:8}}>Открыть Telegram Mini App</a></div></div></section></div></main>;
+  return (
+    <main className="page auth-page">
+      <header className="hero auth-hero">
+        <div className="hero-inner">
+          <a className="auth-back" href={isBookingReturn ? '/marketplace' : '/'}><ArrowLeft size={18} /> Назад</a>
+          <div className="auth-brand"><Lock size={18} /> STO NSK · Новосибирск</div>
+          <h1>{isBookingReturn ? 'Продолжите запись' : mode === 'login' ? 'Войдите в STO NSK' : 'Создайте аккаунт'}</h1>
+          <p>{isBookingReturn ? 'Ваш выбор СТО и слот сохранены. После входа вы вернётесь прямо к подтверждению.' : 'Автомобили, записи, избранные СТО и уведомления — в одном месте.'}</p>
+        </div>
+      </header>
+
+      <div className="content auth-content">
+        <section className="auth-panel">
+          <div className="auth-tabs">
+            <button type="button" className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')}>Войти</button>
+            <button type="button" className={mode === 'signup' ? 'active' : ''} onClick={() => setMode('signup')}>Регистрация</button>
+          </div>
+
+          {isBookingReturn && (
+            <div className="booking-return-note">
+              <strong>Запись сохранена</strong>
+              <span>После авторизации вернём вас к выбранному времени.</span>
+            </div>
+          )}
+
+          <form onSubmit={submit} className="auth-form">
+            {mode === 'signup' && (
+              <label>
+                <span>Имя</span>
+                <div className="auth-input"><UserRound size={18} /><input placeholder="Как к вам обращаться" value={name} onChange={e => setName(e.target.value)} required /></div>
+              </label>
+            )}
+            <label>
+              <span>Email или телефон</span>
+              <input placeholder="you@example.com или +7 999…" value={identifier} onChange={e => setIdentifier(e.target.value)} required />
+            </label>
+            <label>
+              <span>Пароль</span>
+              <input type="password" minLength={8} placeholder="Минимум 8 символов" value={password} onChange={e => setPassword(e.target.value)} required />
+            </label>
+            {error && <div className="auth-error">{error}</div>}
+            <button className="primary auth-submit" disabled={busy}>{busy ? 'Подождите…' : mode === 'login' ? 'Войти' : 'Создать аккаунт'}</button>
+          </form>
+
+          <div className="auth-divider"><span>или</span></div>
+
+          <a className="telegram-auth" href="/tg"><MessageCircle size={20} /><span><strong>Войти через Telegram</strong><small>Без пароля в Mini App</small></span></a>
+        </section>
+      </div>
+    </main>
+  );
 }
 
 export default function AuthPage() {
-  return <Suspense fallback={<main className="page"><div className="content" style={{maxWidth:620}}><section className="card">Загрузка…</section></div></main>}><AuthForm /></Suspense>;
+  return (
+    <Suspense fallback={<main className="page"><div className="content" style={{ maxWidth: 620 }}><section className="card">Загрузка…</section></div></main>}>
+      <AuthForm />
+    </Suspense>
+  );
 }
