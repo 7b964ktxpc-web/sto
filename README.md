@@ -15,7 +15,7 @@ Marketplace автосервисов Новосибирска: поиск, ср�
 - Tailwind CSS + shadcn/ui
 - Supabase Auth / PostgreSQL / PostGIS / Realtime / Storage
 - Zod validation
-- Vercel
+- Netlify
 
 ## Local
 
@@ -49,7 +49,7 @@ See `docs/ARCHITECTURE.md` for domain boundaries, API contracts, flows and MVP s
 
 ## Deployment
 
-Production deployment target: Vercel. Cloudflare/OpenNext deployment tooling is intentionally not used.
+Production deployment target: Netlify. The main project is `sto-nsk-app`, with branch deploys used for feature previews.
 
 ## Compliance
 
