@@ -12,7 +12,8 @@ STO NSK is a multi-tenant marketplace where the transaction is an appointment an
 - Zod for request/domain validation
 - Server-side service/repository layer; clients never own authorization decisions
 - Provider adapters for maps, notifications, payments and Telegram
-- Vercel for web/cron/edge delivery
+- Cloudflare Workers + OpenNext for web/runtime delivery
+- GitHub Actions for CI and production deployment orchestration
 
 ## Repository structure
 
