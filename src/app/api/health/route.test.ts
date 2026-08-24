@@ -8,7 +8,8 @@ describe('GET /api/health', () => {
     await expect(response.json()).resolves.toMatchObject({
       ok: true,
       service: 'sto-nsk',
-      runtime: 'cloudflare-workers-compatible',
+      runtime: 'vercel-nextjs',
+      supabaseConfigured: false,
     });
   });
 });
