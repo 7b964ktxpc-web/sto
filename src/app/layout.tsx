@@ -3,6 +3,7 @@ import Script from 'next/script';
 import MobileNav from '@/components/MobileNav';
 import './globals.css';
 import './business-mobile.css';
+import './design-system.css';
 
 export const metadata: Metadata = {
   title: 'НА ПОСТ',
