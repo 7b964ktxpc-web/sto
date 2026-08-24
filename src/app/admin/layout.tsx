@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 
 const links = [
   ['/admin', 'Обзор'],
+  ['/admin/businesses', 'СТО'],
   ['/admin/analytics', 'Аналитика'],
   ['/admin/reviews', 'Отзывы'],
   ['/admin/audit', 'Аудит'],
