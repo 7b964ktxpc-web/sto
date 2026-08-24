@@ -1,0 +1,28 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "sto-nsk",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-08-24",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "observability": {
+    "enabled": true
+  },
+  "env": {
+    "production": {
+      "name": "sto-nsk-production",
+      "vars": {
+        "NODE_ENV": "production"
+      }
+    },
+    "staging": {
+      "name": "sto-nsk-staging",
+      "vars": {
+        "NODE_ENV": "staging"
+      }
+    }
+  }
+}
