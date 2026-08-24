@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
-import { getAdminClient } from '@/server/supabase/admin';
+import { getAdminClient, isAdminConfigured } from '@/server/supabase/admin';
 
 export async function GET() {
-  const checks = { supabase: false, environment: false };
-  checks.environment = Boolean((process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL) && process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const checks = { supabase: false, environment: isAdminConfigured() };
   if (checks.environment) {
     try {
       const { error } = await getAdminClient().from('businesses').select('id').limit(1);
