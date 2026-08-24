@@ -1,0 +1,29 @@
+import { NextResponse } from 'next/server';
+import { getBusinessMembership, canManageBusiness } from '@/server/auth/business';
+import { getAdminClient } from '@/server/supabase/admin';
+
+export async function GET() {
+  const membership = await getBusinessMembership();
+  if (!membership) return NextResponse.json({ error: 'BUSINESS_ACCESS_REQUIRED' }, { status: 403 });
+  const { data, error } = await getAdminClient().from('queues').select('id,is_open,mode,queue_entries(id,status,position,estimated_wait_minutes,created_at)').eq('business_id', membership.businessId).single();
+  if (error) return NextResponse.json({ error: 'QUEUE_LOAD_FAILED' }, { status: 500 });
+  return NextResponse.json({ queue: data });
+}
+
+export async function PATCH(request: Request) {
+  const membership = await getBusinessMembership();
+  if (!membership || !canManageBusiness(membership.role)) return NextResponse.json({ error: 'BUSINESS_WRITE_REQUIRED' }, { status: 403 });
+  try {
+    const body = await request.json();
+    const entryId = String(body.entry_id ?? '');
+    const status = String(body.status ?? '');
+    const position = body.position == null ? null : Number(body.position);
+    const allowed = ['WAITING','CALLED','IN_SERVICE','READY','COMPLETED','CANCELLED','NO_SHOW'];
+    if (!entryId || !allowed.includes(status)) return NextResponse.json({ error: 'QUEUE_UPDATE_REQUIRED' }, { status: 400 });
+    const { data, error } = await getAdminClient().rpc('business_update_queue_entry', { p_entry_id: entryId, p_status: status, p_position: position });
+    if (error) return NextResponse.json({ error: error.message.includes('BUSINESS_ACCESS_REQUIRED') ? 'BUSINESS_ACCESS_REQUIRED' : 'QUEUE_UPDATE_FAILED' }, { status: 409 });
+    return NextResponse.json({ entry: data });
+  } catch {
+    return NextResponse.json({ error: 'INVALID_QUEUE_UPDATE' }, { status: 400 });
+  }
+}
