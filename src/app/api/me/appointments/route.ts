@@ -59,7 +59,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: message }, { status: 409 });
     }
 
-    void sendTelegramToUser(user.id, `🚗 STO NSK\nЗапись создана.\n${business?.name ?? 'СТО'}\n${catalogService?.name ?? 'Услуга'}\n${car.brand} ${car.model}\n${new Intl.DateTimeFormat('ru-RU', { timeZone: 'Asia/Novosibirsk', dateStyle: 'medium', timeStyle: 'short' }).format(startDate)}`);
+    const appointmentId = typeof data === 'string' ? data : String(data ?? '');
+    const businessName = business?.name ?? 'СТО';
+    const serviceName = catalogService?.name ?? 'Услуга';
+    const localStart = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Asia/Novosibirsk', dateStyle: 'medium', timeStyle: 'short' }).format(startDate);
+    void db.from('notifications').insert({ user_id: user.id, type: 'BOOKING_CREATED', title: 'Запись создана', body: `${businessName} · ${serviceName} · ${localStart}`, payload: { appointment_id: appointmentId, business_id: service.business_id } });
+    void sendTelegramToUser(user.id, `🚗 STO NSK\nЗапись создана.\n${businessName}\n${serviceName}\n${car.brand} ${car.model}\n${localStart}`);
 
     return NextResponse.json({ appointment: data }, { status: 201 });
   } catch {
