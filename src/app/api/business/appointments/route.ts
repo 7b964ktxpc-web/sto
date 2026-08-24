@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   const from = url.searchParams.get('from');
   const to = url.searchParams.get('to');
   let query = getAdminClient().from('appointments').select(`
-    id,starts_at,ends_at,status,user_id,car_id,business_service_id,workstation_id,notes,
+    id,starts_at,ends_at,status,user_id,car_id,business_service_id,workstation_id,employee_id,notes,
     user:users(id,display_name,phone,email),
     car:cars(id,brand,model,year,plate_number,mileage),
     service:business_services(id,price,duration_minutes,service:services(id,name)),
@@ -30,17 +30,21 @@ export async function PATCH(request: Request) {
     const appointmentId = String(body.id ?? '');
     const startsAt = body.starts_at ? String(body.starts_at) : null;
     const status = body.status ? String(body.status) : null;
-    const workstationId = body.workstation_id ? String(body.workstation_id) : null;
-    if (!appointmentId || (!startsAt && !status && !workstationId)) return NextResponse.json({ error: 'APPOINTMENT_UPDATE_REQUIRED' }, { status: 400 });
+    const workstationId = body.workstation_id === undefined ? null : (body.workstation_id ? String(body.workstation_id) : null);
+    const employeeId = body.employee_id === undefined ? null : (body.employee_id ? String(body.employee_id) : null);
+    if (!appointmentId || (!startsAt && !status && body.workstation_id === undefined && body.employee_id === undefined && body.notes === undefined)) return NextResponse.json({ error: 'APPOINTMENT_UPDATE_REQUIRED' }, { status: 400 });
     const { data, error } = await getAdminClient().rpc('business_update_appointment', {
       p_appointment_id: appointmentId,
+      p_actor_user_id: membership.user.id,
       p_starts_at: startsAt,
       p_status: status,
       p_workstation_id: workstationId,
+      p_employee_id: employeeId,
       p_notes: body.notes ? String(body.notes).slice(0, 1000) : null,
     });
     if (error) {
-      const message = error.message.includes('SLOT_ALREADY_TAKEN') || error.code === '23P01' ? 'Это время уже заняли. Выберите другой слот.' : error.message.includes('APPOINTMENT_NOT_FOUND') ? 'Запись не найдена.' : 'Не удалось изменить запись.';
+      const raw = error.message || '';
+      const message = raw.includes('SLOT_ALREADY_TAKEN') || error.code === '23P01' ? 'Это время уже заняли. Выберите другой слот.' : raw.includes('INVALID_WORKSTATION') ? 'Этот пост недоступен для записи.' : raw.includes('INVALID_EMPLOYEE') ? 'Этот сотрудник недоступен.' : raw.includes('APPOINTMENT_NOT_FOUND') ? 'Запись не найдена.' : 'Не удалось изменить запись.';
       return NextResponse.json({ error: message }, { status: 409 });
     }
     return NextResponse.json({ appointment: data });
