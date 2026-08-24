@@ -25,29 +25,29 @@ export async function POST(request:Request){
     if(!chatId) return NextResponse.json({ok:true});
 
     const db=getAdminClient();
-
+    const appUrl=process.env.TELEGRAM_MINI_APP_URL ?? `${process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin}/telegram`;
+    const openButton={reply_markup:{inline_keyboard:[[{text:'Открыть STO NSK',web_app:{url:appUrl}}]]}};
     const tgUserId=Number(message?.from?.id);
     const {data:account}=await db.from('telegram_accounts').select('user_id').eq('telegram_user_id',tgUserId).maybeSingle();
     if(!account?.user_id){
-      await telegram(token,'sendMessage',{chat_id:chatId,text:'🚗 STO NSK\nОткройте Mini App из бота, чтобы подключить аккаунт и пользоваться записями.'});
+      await telegram(token,'sendMessage',{chat_id:chatId,text:'🚗 STO NSK\nОткройте Mini App, чтобы автоматически подключить Telegram и получить доступ к записям, автомобилям и очереди.',...openButton});
       return NextResponse.json({ok:true});
     }
 
     const userId=account.user_id;
     if(text==='/start' || text==='/menu') {
-      const appUrl=process.env.TELEGRAM_MINI_APP_URL;
-      await telegram(token,'sendMessage',{chat_id:chatId,text:'🚗 STO NSK\nУправляйте записями, автомобилями и очередью прямо в Telegram.',...(appUrl?{reply_markup:{inline_keyboard:[[{text:'Открыть STO NSK',web_app:{url:appUrl}}]]}}:{})});
+      await telegram(token,'sendMessage',{chat_id:chatId,text:'🚗 STO NSK\nУправляйте записями, автомобилями и очередью прямо в Telegram.',...openButton});
       return NextResponse.json({ok:true});
     }
 
     if(text==='/appointments'){
       const {data}=await db.from('appointments').select('starts_at,status,business:businesses(name),service:business_services(service:services(name))').eq('user_id',userId).order('starts_at',{ascending:false}).limit(5);
       const lines=(data??[]).map((a:any)=>`${new Date(a.starts_at).toLocaleString('ru-RU',{dateStyle:'medium',timeStyle:'short'})} · ${a.business?.name??'СТО'} · ${a.service?.service?.name??'Услуга'}`);
-      await telegram(token,'sendMessage',{chat_id:chatId,text:lines.length?`📅 Последние записи:\n${lines.join('\n')}`:'📅 Записей пока нет.'});
+      await telegram(token,'sendMessage',{chat_id:chatId,text:lines.length?`📅 Последние записи:\n${lines.join('\n')}`:'📅 Записей пока нет.',...openButton});
       return NextResponse.json({ok:true});
     }
 
-    await telegram(token,'sendMessage',{chat_id:chatId,text:'Команды STO NSK:\n/start — открыть меню\n/appointments — мои последние записи'});
+    await telegram(token,'sendMessage',{chat_id:chatId,text:'Команды STO NSK:\n/start — открыть меню\n/appointments — мои последние записи',...openButton});
     return NextResponse.json({ok:true});
   } catch(error){
     console.error('telegram webhook',error);
