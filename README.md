@@ -47,6 +47,10 @@ Migrations live in `supabase/migrations`. The first migration creates the multi-
 
 See `docs/ARCHITECTURE.md` for domain boundaries, API contracts, flows and MVP scope.
 
+## Deployment
+
+Production deployment target: Vercel. Cloudflare/OpenNext deployment tooling is intentionally not used.
+
 ## Compliance
 
 Before production launch, assess Russian 152-FZ personal-data requirements, consent/retention policies, Telegram data handling, and the hosting/data-residency setup.
