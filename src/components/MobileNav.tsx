@@ -6,7 +6,22 @@ import { usePathname } from 'next/navigation';
 
 export default function MobileNav() {
   const pathname = usePathname();
-  if (pathname === '/auth' || pathname.startsWith('/auth/')) return null;
+
+  // Keep the customer bottom navigation isolated from Admin, Business and Telegram UI.
+  // Those areas have their own navigation and the global bar caused visual overlap.
+  const isPrivateAppArea =
+    pathname === '/auth' ||
+    pathname.startsWith('/auth/') ||
+    pathname === '/admin' ||
+    pathname.startsWith('/admin/') ||
+    pathname === '/business' ||
+    pathname.startsWith('/business/') ||
+    pathname === '/telegram' ||
+    pathname.startsWith('/telegram/') ||
+    pathname === '/tg' ||
+    pathname.startsWith('/tg/');
+
+  if (isPrivateAppArea) return null;
 
   return (
     <nav className="mobile-nav" aria-label="Основная навигация">
@@ -14,7 +29,7 @@ export default function MobileNav() {
         <Home size={20} />
         <small>Главная</small>
       </Link>
-      <Link href="/account">
+      <Link href="/account" className={pathname.startsWith('/account') ? 'active' : ''}>
         <Heart size={20} />
         <small>Избранное</small>
       </Link>
@@ -22,7 +37,7 @@ export default function MobileNav() {
         <Plus size={24} />
         <small>Записаться</small>
       </Link>
-      <Link href="/notifications">
+      <Link href="/notifications" className={pathname.startsWith('/notifications') ? 'active' : ''}>
         <Bell size={20} />
         <small>Уведомления</small>
       </Link>
