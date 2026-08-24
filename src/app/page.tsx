@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useState } from 'react';
-import { CarFront, Check, ChevronDown, Filter, Heart, Map, Search, Star, X } from 'lucide-react';
+import { CarFront, Check, ChevronDown, Filter, Heart, Search, Star, X } from 'lucide-react';
 
 const CityMap = dynamic(() => import('@/components/CityMap'), { ssr: false });
 
