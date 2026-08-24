@@ -1,10 +1,9 @@
 'use client';
-
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 
 type Detail={business?:{id:string;name:string};employees:Array<{id:string;name:string;position:string|null;is_active:boolean}>;workstations:Array<{id:string;name:string;status:string}>};
-const wsStatuses=['AVAILABLE','BUSY','OFFLINE','MAINTENANCE'];
+const wsStatuses=[['available','Свободен'],['maintenance','На обслуживании'],['inactive','Отключён']] as const;
 
 export default function ManageBusinessPeople(){
  const {id}=useParams<{id:string}>(); const router=useRouter(); const [data,setData]=useState<Detail|null>(null); const [error,setError]=useState(''); const [busy,setBusy]=useState('');
@@ -15,6 +14,6 @@ export default function ManageBusinessPeople(){
  if(!data?.business)return <main className="content"><div className="card">Загружаем…</div></main>;
  return <main className="page"><header className="hero"><div className="hero-inner"><span className="eyebrow">STO NSK · Admin</span><h1>Команда и посты</h1><p>{data.business.name}</p></div></header><div className="content"><div className="toolbar"><a className="pill" href={`/admin/businesses/${id}`}>← Карточка СТО</a></div>{error&&<div className="card error" style={{marginTop:12}}>{error}</div>}
  <section className="card" style={{marginTop:16}}><div className="toolbar"><div><h2>Сотрудники</h2><div className="muted">Включение и отключение сотрудников.</div></div><span className="pill">{data.employees.length}</span></div>{data.employees.length?data.employees.map(e=><div className="service-row" key={e.id}><div style={{flex:1}}><strong>{e.name}</strong><div className="muted">{e.position||'Должность не указана'}</div></div><select value={e.is_active?'active':'inactive'} disabled={busy===e.id} onChange={ev=>void update('employee',e.id,ev.target.value)}><option value="active">Активен</option><option value="inactive">Неактивен</option></select></div>):<div className="empty">Сотрудников нет.</div>}</section>
- <section className="card" style={{marginTop:16}}><div className="toolbar"><div><h2>Рабочие посты</h2><div className="muted">Текущий технический статус каждого поста.</div></div><span className="pill">{data.workstations.length}</span></div>{data.workstations.length?data.workstations.map(w=><div className="service-row" key={w.id}><div style={{flex:1}}><strong>{w.name}</strong></div><select value={w.status} disabled={busy===w.id} onChange={ev=>void update('workstation',w.id,ev.target.value)}>{wsStatuses.map(s=><option key={s} value={s}>{s}</option>)}</select></div>):<div className="empty">Постов нет.</div>}</section>
+ <section className="card" style={{marginTop:16}}><div className="toolbar"><div><h2>Рабочие посты</h2><div className="muted">Текущий технический статус каждого поста.</div></div><span className="pill">{data.workstations.length}</span></div>{data.workstations.length?data.workstations.map(w=><div className="service-row" key={w.id}><div style={{flex:1}}><strong>{w.name}</strong><div className="muted">{wsStatuses.find(([v])=>v===w.status)?.[1] ?? w.status}</div></div><select value={w.status} disabled={busy===w.id} onChange={ev=>void update('workstation',w.id,ev.target.value)}>{wsStatuses.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></div>):<div className="empty">Постов нет.</div>}</section>
  </div><style jsx>{`select{padding:9px 10px;border:1px solid rgba(0,0,0,.12);border-radius:9px;background:#fff}`}</style></main>;
 }
