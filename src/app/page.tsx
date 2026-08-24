@@ -9,6 +9,7 @@ type Slot = { slot_start: string; slot_end: string; available_workstations: numb
 type Car = { id: string; brand: string; model: string; plate_number: string | null };
 type Station = { id: string; name: string; address: string; rating: number; lat: number; lng: number; phone?: string; station_services: Array<{ id: string; service_id: string; price: number; duration_minutes: number; services: Service | null }> };
 type BookingIntent = { businessId: string; businessServiceId: string; date: string; slotStart: string };
+type BookingResult = { appointment?: { id:string; status:string; starts_at:string; ends_at:string; workstation?: { id:string; name:string }|null; employee?: { id:string; name:string; position:string|null }|null }; resource_assignment?: { workstation_id:string; employee_id:string|null } };
 
 const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Novosibirsk' }).format(new Date());
 const BOOKING_INTENT_KEY = 'sto_booking_intent';
@@ -28,7 +29,7 @@ export default function Home() {
   const [selectedCar, setSelectedCar] = useState('');
   const [authRequired, setAuthRequired] = useState(false);
   const [bookingBusy, setBookingBusy] = useState(false);
-  const [bookingSuccess, setBookingSuccess] = useState('');
+  const [bookingResult, setBookingResult] = useState<BookingResult|null>(null);
   const [error, setError] = useState('');
 
   async function loadCars() {
@@ -42,7 +43,7 @@ export default function Home() {
   }
 
   async function loadSlots(station: Station, businessServiceId: string, date: string, preferredSlot = '') {
-    setSlotsLoading(true); setSlots([]); setSelectedSlot(''); setBookingSuccess(''); setError('');
+    setSlotsLoading(true); setSlots([]); setSelectedSlot(''); setBookingResult(null); setError('');
     try {
       const r = await fetch(`/api/availability?businessId=${station.id}&businessServiceId=${businessServiceId}&date=${date}`);
       const x = await r.json(); if (!r.ok) throw new Error(x.error);
@@ -56,7 +57,7 @@ export default function Home() {
   async function openBooking(station: Station) {
     const businessServiceId = station.station_services[0]?.id ?? '';
     localStorage.setItem(BOOKING_INTENT_KEY, JSON.stringify({ businessId: station.id, businessServiceId, date: today, slotStart: '' }));
-    setSelected(station); setSelectedService(businessServiceId); setBookingDate(today); setSelectedSlot(''); setBookingSuccess(''); setAuthRequired(false); setError('');
+    setSelected(station); setSelectedService(businessServiceId); setBookingDate(today); setSelectedSlot(''); setBookingResult(null); setAuthRequired(false); setError('');
     await loadCars();
     if (businessServiceId) await loadSlots(station, businessServiceId, today);
   }
@@ -94,14 +95,14 @@ export default function Home() {
   async function confirmBooking() {
     if (!selected || !selectedService || !selectedSlot) return;
     if (!selectedCar) { setError('Добавьте автомобиль в кабинете клиента.'); return; }
-    setBookingBusy(true); setError(''); setBookingSuccess('');
+    setBookingBusy(true); setError(''); setBookingResult(null);
     const r = await fetch('/api/me/appointments', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({ business_service_id:selectedService, car_id:selectedCar, starts_at:selectedSlot }) });
-    const x = await r.json();
+    const x = await r.json() as BookingResult & {error?:string};
     setBookingBusy(false);
     if (r.status === 401) { localStorage.setItem(BOOKING_INTENT_KEY, JSON.stringify({ businessId: selected.id, businessServiceId: selectedService, date: bookingDate, slotStart: selectedSlot })); setAuthRequired(true); return; }
     if (!r.ok) { setError(x.error || 'Не удалось создать запись.'); return; }
     localStorage.removeItem(BOOKING_INTENT_KEY);
-    setBookingSuccess('Запись создана. Проверьте статус и детали в личном кабинете.');
+    setBookingResult(x);
   }
 
   return <main className="page">
@@ -126,8 +127,8 @@ export default function Home() {
         <div className="service-row"><select value={selectedService} onChange={e => { const id=e.target.value; setSelectedService(id); localStorage.setItem(BOOKING_INTENT_KEY, JSON.stringify({ businessId:selected.id, businessServiceId:id, date:bookingDate, slotStart:'' })); loadSlots(selected,id,bookingDate); }} style={{padding:12,borderRadius:10,border:'1px solid #e2e8f0',flex:1}}>{selected.station_services.map(x => <option key={x.id} value={x.id}>{x.services?.name} · {x.price.toLocaleString('ru-RU')} ₽ · {x.duration_minutes} мин</option>)}</select><input type="date" min={today} value={bookingDate} onChange={e => { const date=e.target.value; setBookingDate(date); localStorage.setItem(BOOKING_INTENT_KEY, JSON.stringify({ businessId:selected.id, businessServiceId:selectedService, date, slotStart:'' })); loadSlots(selected,selectedService,date); }} style={{padding:12,borderRadius:10,border:'1px solid #e2e8f0'}} /></div>
         {!authRequired && cars.length > 0 && <div className="section"><div className="muted" style={{marginBottom:8}}>Автомобиль</div><select value={selectedCar} onChange={e=>setSelectedCar(e.target.value)} style={{width:'100%',padding:12,borderRadius:10,border:'1px solid #e2e8f0'}}>{cars.map(c=><option key={c.id} value={c.id}>{c.brand} {c.model}{c.plate_number?` · ${c.plate_number}`:''}</option>)}</select></div>}
         <div className="section"><div className="muted" style={{marginBottom:10}}>Свободное время</div>{slotsLoading ? <div className="card">Проверяем посты и занятые записи…</div> : slots.length ? <div style={{display:'flex',flexWrap:'wrap',gap:8}}>{slots.map(slot => { const label=new Intl.DateTimeFormat('ru-RU',{timeZone:'Asia/Novosibirsk',hour:'2-digit',minute:'2-digit'}).format(new Date(slot.slot_start)); return <button key={slot.slot_start} className={selectedSlot===slot.slot_start ? 'primary' : 'pill'} onClick={()=>{setSelectedSlot(slot.slot_start); localStorage.setItem(BOOKING_INTENT_KEY, JSON.stringify({ businessId:selected.id, businessServiceId:selectedService, date:bookingDate, slotStart:slot.slot_start }));}}>{label} · {slot.available_workstations} пост.</button>; })}</div> : <div className="card empty">На эту дату свободных слотов нет. Выберите другой день.</div>}</div>
-        {selectedSlot && !authRequired && <div className="card" style={{marginTop:14,background:'#f8fafc'}}><strong>Слот выбран: {new Intl.DateTimeFormat('ru-RU',{timeZone:'Asia/Novosibirsk',dateStyle:'medium',timeStyle:'short'}).format(new Date(selectedSlot))}</strong><div className="muted" style={{marginTop:4}}>Пост будет назначен автоматически при подтверждении.</div><button className="primary" style={{marginTop:12}} disabled={bookingBusy||!cars.length} onClick={()=>void confirmBooking()}>{bookingBusy?'Создаём запись…':'Подтвердить запись'}</button></div>}
-        {bookingSuccess && <div className="card" style={{marginTop:12}}><strong>{bookingSuccess}</strong><div style={{marginTop:8}}><a href="/account" className="primary" style={{display:'inline-block',textDecoration:'none'}}>Мои записи</a></div></div>}
+        {selectedSlot && !authRequired && !bookingResult && <div className="card" style={{marginTop:14,background:'#f8fafc'}}><strong>Слот выбран: {new Intl.DateTimeFormat('ru-RU',{timeZone:'Asia/Novosibirsk',dateStyle:'medium',timeStyle:'short'}).format(new Date(selectedSlot))}</strong><div className="muted" style={{marginTop:4}}>Пост и сотрудник будут назначены автоматически при подтверждении.</div><button className="primary" style={{marginTop:12}} disabled={bookingBusy||!cars.length} onClick={()=>void confirmBooking()}>{bookingBusy?'Создаём запись…':'Подтвердить запись'}</button></div>}
+        {bookingResult && <div className="card" style={{marginTop:14}}><div className="status green">● Запись создана</div><h3 style={{margin:'8px 0'}}>Всё готово</h3><div className="service-row"><span>Дата и время</span><strong>{bookingResult.appointment?.starts_at ? new Intl.DateTimeFormat('ru-RU',{timeZone:'Asia/Novosibirsk',dateStyle:'medium',timeStyle:'short'}).format(new Date(bookingResult.appointment.starts_at)) : 'Подтверждено'}</strong></div>{bookingResult.appointment?.workstation?.name&&<div className="service-row"><span>Назначенный пост</span><strong>{bookingResult.appointment.workstation.name}</strong></div>}{bookingResult.appointment?.employee?.name&&<div className="service-row"><span>Сотрудник</span><strong>{bookingResult.appointment.employee.name}</strong></div>}<div className="muted" style={{marginTop:8}}>Ресурсы СТО распределены автоматически. Запись можно посмотреть в личном кабинете.</div><div style={{marginTop:10}}><a href="/account" className="primary" style={{display:'inline-block',textDecoration:'none'}}>Мои записи</a></div></div>}
       </section>}
       <section className="section"><div className="feature-grid"><div className="feature"><strong>Цена до записи</strong><span className="muted">Сравнивайте предложения разных СТО.</span></div><div className="feature"><strong>Реальные слоты</strong><span className="muted">Availability engine учитывает рабочие часы и занятые посты.</span></div><div className="feature"><strong>Живая очередь</strong><span className="muted">Следите за позицией автомобиля в реальном времени.</span></div></div></section>
     </div>
