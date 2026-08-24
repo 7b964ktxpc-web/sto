@@ -1,5 +1,7 @@
 import { getAdminClient } from '@/server/supabase/admin';
 
+export const dynamic = 'force-dynamic';
+
 export default async function StationsDirectoryPage() {
   const db = getAdminClient();
   const { data: businesses } = await db.from('businesses').select('id,name,slug,rating,review_count,description').eq('status','active').is('deleted_at',null).order('rating',{ascending:false});
