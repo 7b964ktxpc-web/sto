@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { rateLimit, requestIp } from '@/lib/rate-limit';
+import { getAdminClient } from '@/server/supabase/admin';
 
 async function telegram(token:string, method:string, body:Record<string,unknown>) {
   const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify(body) });
@@ -24,10 +24,7 @@ export async function POST(request:Request){
     const text=String(message?.text??'');
     if(!chatId) return NextResponse.json({ok:true});
 
-    const url=process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceKey=process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if(!url||!serviceKey) throw new Error('SUPABASE_NOT_CONFIGURED');
-    const db=createClient(url,serviceKey,{auth:{autoRefreshToken:false,persistSession:false}});
+    const db=getAdminClient();
 
     const tgUserId=Number(message?.from?.id);
     const {data:account}=await db.from('telegram_accounts').select('user_id').eq('telegram_user_id',tgUserId).maybeSingle();
