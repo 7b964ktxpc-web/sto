@@ -1,14 +1,12 @@
 import { NextResponse } from 'next/server';
+import { isAdminConfigured } from '@/server/supabase/admin';
 
 export async function GET() {
   return NextResponse.json({
     ok: true,
     service: 'sto-nsk',
-    runtime: 'vercel-nextjs',
-    supabaseConfigured: Boolean(
-      (process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL) &&
-      process.env.SUPABASE_SERVICE_ROLE_KEY,
-    ),
+    runtime: 'netlify-nextjs',
+    supabaseConfigured: isAdminConfigured(),
     timestamp: new Date().toISOString(),
   });
 }
