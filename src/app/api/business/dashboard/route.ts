@@ -10,8 +10,9 @@ export async function GET() {
     const { data: membership, error: membershipError } = await db.from('business_members').select('business_id,role').eq('user_id', user.id).in('role',['BUSINESS_OWNER','BUSINESS_MANAGER']).order('created_at').limit(1).maybeSingle();
     if (membershipError) throw membershipError;
     if (!membership) return NextResponse.json({ error: 'BUSINESS_ACCESS_REQUIRED' }, { status: 403 });
-    const { data: business, error: businessError } = await db.from('businesses').select('id,name,rating').eq('id',membership.business_id).eq('status','active').is('deleted_at',null).single();
+    const { data: business, error: businessError } = await db.from('businesses').select('id,name,rating,platform_access_status').eq('id',membership.business_id).eq('status','active').is('deleted_at',null).single();
     if (businessError || !business) return NextResponse.json({ error: 'BUSINESS_NOT_FOUND' }, { status: 404 });
+    if (business.platform_access_status !== 'active') return NextResponse.json({ error: 'PLATFORM_BILLING_RESTRICTED', platform_access_status: business.platform_access_status }, { status: 402 });
     const start = new Date(); start.setHours(0,0,0,0); const end = new Date(start); end.setDate(end.getDate()+1);
     const [{ data: appointments }, { data: workstations }, { data: services }, { data: queue }] = await Promise.all([
       db.from('appointments').select('id,starts_at,ends_at,status,car_id,business_service_id,user_id,workstation_id').eq('business_id',business.id).gte('starts_at',start.toISOString()).lt('starts_at',end.toISOString()).order('starts_at'),
