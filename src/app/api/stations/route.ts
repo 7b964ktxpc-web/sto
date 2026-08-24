@@ -3,9 +3,10 @@ import { createClient } from '@supabase/supabase-js';
 
 export async function GET(request: Request) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  // Prefer the server-only key when it exists, but production can safely use
-  // Supabase's publishable key because every queried table has public SELECT RLS.
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // The catalog is public data, so keep it independent from the server-role secret.
+  // This also prevents an unrelated/mismatched service-role key from breaking the
+  // public marketplace endpoint in production.
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) return NextResponse.json({ error: 'SUPABASE_NOT_CONFIGURED' }, { status: 503 });
 
   const db = createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
@@ -13,9 +14,6 @@ export async function GET(request: Request) {
   const service = searchParams.get('service');
   const query = searchParams.get('q')?.trim().toLowerCase();
 
-  // business_search is a server-oriented view without a public SELECT policy.
-  // Read the same public data from the underlying tables so the production
-  // Worker does not require a service-role secret just to render the catalog.
   const { data: businesses, error } = await db
     .from('businesses')
     .select('id,name,phone,rating,review_count,description')
@@ -77,8 +75,18 @@ export async function GET(request: Request) {
 
 function parsePoint(value: unknown): { lat: number; lng: number } | null {
   if (!value) return null;
+  if (typeof value === 'object' && value !== null) {
+    const candidate = value as { coordinates?: unknown };
+    if (Array.isArray(candidate.coordinates) && candidate.coordinates.length >= 2) {
+      const lng = Number(candidate.coordinates[0]);
+      const lat = Number(candidate.coordinates[1]);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+    }
+  }
   const text = String(value);
   const match = text.match(/POINT\s*\(([-\d.]+)\s+([-\d.]+)\)/i);
   if (!match) return null;
-  return { lng: Number(match[1]), lat: Number(match[2]) };
+  const lng = Number(match[1]);
+  const lat = Number(match[2]);
+  return Number.isFinite(lat) && Number.isFinite(lng) ? { lng, lat } : null;
 }
