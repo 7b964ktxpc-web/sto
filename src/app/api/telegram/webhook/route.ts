@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { validateTelegramInitData } from '@/lib/telegram';
+import { rateLimit, requestIp } from '@/lib/rate-limit';
 
 async function telegram(token:string, method:string, body:Record<string,unknown>) {
   const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify(body) });
@@ -9,7 +9,13 @@ async function telegram(token:string, method:string, body:Record<string,unknown>
 }
 
 export async function POST(request:Request){
+  const rl = rateLimit(`telegram:${requestIp(request)}`, 60, 60_000);
+  if (!rl.allowed) return NextResponse.json({ok:false,error:'TOO_MANY_REQUESTS'},{status:429});
   try {
+    const configuredSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
+    if (configuredSecret && request.headers.get('x-telegram-bot-api-secret-token') !== configuredSecret) {
+      return NextResponse.json({ok:false,error:'UNAUTHORIZED_WEBHOOK'},{status:401});
+    }
     const token=process.env.TELEGRAM_BOT_TOKEN;
     if(!token) return NextResponse.json({ok:false,error:'TELEGRAM_NOT_CONFIGURED'},{status:503});
     const update=await request.json();
