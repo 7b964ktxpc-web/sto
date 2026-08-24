@@ -1,0 +1,42 @@
+name: Production Smoke
+
+on:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require production URL
+        env:
+          PRODUCTION_URL: ${{ secrets.PRODUCTION_URL }}
+        run: |
+          test -n "$PRODUCTION_URL"
+          echo "Using configured production URL"
+
+      - name: Health
+        env:
+          PRODUCTION_URL: ${{ secrets.PRODUCTION_URL }}
+        run: |
+          curl --fail --silent --show-error "$PRODUCTION_URL/api/health" > /tmp/health.json
+          cat /tmp/health.json
+
+      - name: Marketplace API
+        env:
+          PRODUCTION_URL: ${{ secrets.PRODUCTION_URL }}
+        run: |
+          curl --fail --silent --show-error "$PRODUCTION_URL/api/stations" > /tmp/stations.json
+          cat /tmp/stations.json | head -c 2000
+
+      - name: Public homepage
+        env:
+          PRODUCTION_URL: ${{ secrets.PRODUCTION_URL }}
+        run: |
+          curl --fail --silent --show-error -I "$PRODUCTION_URL/" | head
+
+      - name: Auth endpoint contract
+        env:
+          PRODUCTION_URL: ${{ secrets.PRODUCTION_URL }}
+        run: |
+          status=$(curl --silent --output /dev/null --write-out '%{http_code}' -X POST "$PRODUCTION_URL/api/auth/telegram" -H 'content-type: application/json' --data '{}')
+          test "$status" = "400" || { echo "Expected 400 for invalid Telegram payload, got $status"; exit 1; }
