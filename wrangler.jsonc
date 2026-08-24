@@ -15,13 +15,17 @@
     "production": {
       "name": "sto-nsk-production",
       "vars": {
-        "NODE_ENV": "production"
+        "NODE_ENV": "production",
+        "NEXT_PUBLIC_SUPABASE_URL": "https://mtyhncplkxcraktdrhmk.supabase.co",
+        "NEXT_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_qLgXzkaQdffpJ_0na4OPvA_eldbqacM"
       }
     },
     "staging": {
       "name": "sto-nsk-staging",
       "vars": {
-        "NODE_ENV": "staging"
+        "NODE_ENV": "staging",
+        "NEXT_PUBLIC_SUPABASE_URL": "https://mtyhncplkxcraktdrhmk.supabase.co",
+        "NEXT_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_qLgXzkaQdffpJ_0na4OPvA_eldbqacM"
       }
     }
   }
