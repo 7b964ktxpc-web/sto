@@ -9,14 +9,10 @@ export async function GET(request: Request) {
   if (!id) return NextResponse.json({ error: 'APPOINTMENT_ID_REQUIRED' }, { status: 400 });
   const db = getAdminClient();
   try {
-    const { data, error } = await db.from('appointments').select(`id,business_id,user_id,car_id,business_service_id,starts_at,ends_at,status,notes,created_at,updated_at,user:users(full_name,phone,email),car:cars(plate_number,year,comments,brand:car_brands(name),model:car_models(name)),service:business_services(price,duration_minutes,service:services(name)),business:businesses(name,slug),resources:appointment_resources(resource_type,resource_id)`).eq('id', id).maybeSingle();
+    const { data, error } = await db.from('appointments').select(`id,business_id,user_id,car_id,business_service_id,employee_id,workstation_id,starts_at,ends_at,status,notes,created_at,updated_at,user:users(display_name,phone,email),car:cars(plate_number,year,comments,brand:car_brands(name),model:car_models(name)),service:business_services(price,duration_minutes,service:services(name)),business:businesses(name,slug),employee:employees(name,position),workstation:workstations(name,status)`).eq('id', id).maybeSingle();
     if (error) throw error;
     if (!data) return NextResponse.json({ error: 'APPOINTMENT_NOT_FOUND' }, { status: 404 });
-    const appointment = {
-      ...data,
-      user: data.user ? { ...data.user, display_name: data.user.full_name } : null,
-    };
-    return NextResponse.json({ appointment });
+    return NextResponse.json({ appointment: data });
   } catch (error) {
     console.error('admin appointment detail', error);
     return NextResponse.json({ error: 'Не удалось загрузить запись' }, { status: 503 });
