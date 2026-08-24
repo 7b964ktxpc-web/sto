@@ -6,7 +6,7 @@ import { sendTelegramToUser } from '@/server/notifications/telegram';
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'UNAUTHENTICATED' }, { status: 401 });
-  const { data, error } = await getAdminClient().from('appointments').select('id,business_id,car_id,starts_at,ends_at,status,notes,business:businesses(id,name,slug),service:business_services(id,price,duration_minutes,service:services(id,name)),car:cars(id,brand,model,plate_number)').eq('user_id', user.id).order('starts_at', { ascending: false });
+  const { data, error } = await getAdminClient().from('appointments').select('id,business_id,car_id,starts_at,ends_at,status,notes,business:businesses(id,name,slug),service:business_services(id,price,duration_minutes,service:services(id,name)),car:cars(id,brand,model,plate_number),workstation:workstations(id,name,status),employee:employees(id,name,position,specialization)').eq('user_id', user.id).order('starts_at', { ascending: false });
   if (error) return NextResponse.json({ error: 'APPOINTMENTS_LOAD_FAILED' }, { status: 500 });
   return NextResponse.json({ appointments: data ?? [] });
 }
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     const businessServiceId = String(body.business_service_id ?? '');
     const carId = String(body.car_id ?? '');
     const start = String(body.starts_at ?? '');
-    const employeeId = body.employee_id ? String(body.employee_id) : null;
+    const requestedEmployeeId = body.employee_id ? String(body.employee_id) : null;
     if (!businessServiceId || !carId || !start) return NextResponse.json({ error: 'BOOKING_FIELDS_REQUIRED' }, { status: 400 });
 
     const db = getAdminClient();
@@ -38,12 +38,22 @@ export async function POST(request: Request) {
     const startDate = new Date(start);
     if (Number.isNaN(startDate.getTime())) return NextResponse.json({ error: 'INVALID_START_TIME' }, { status: 400 });
     const endDate = new Date(startDate.getTime() + Number(service.duration_minutes) * 60_000);
-    const { data: workstations } = await db.from('workstations').select('id').eq('business_id', service.business_id).eq('is_active', true).eq('status', 'AVAILABLE').order('name');
+
+    const [{ data: workstations }, { data: activeEmployees }] = await Promise.all([
+      db.from('workstations').select('id').eq('business_id', service.business_id).eq('is_active', true).eq('status', 'AVAILABLE').order('name'),
+      db.from('employees').select('id').eq('business_id', service.business_id).eq('is_active', true).order('name'),
+    ]);
     if (!workstations?.length) return NextResponse.json({ error: 'NO_AVAILABLE_WORKSTATIONS' }, { status: 409 });
-    const { data: occupied } = await db.from('appointments').select('workstation_id').eq('business_id', service.business_id).lt('starts_at', endDate.toISOString()).gt('ends_at', startDate.toISOString()).not('status', 'in', '(CANCELLED,NO_SHOW)').not('workstation_id', 'is', null);
-    const occupiedIds = new Set((occupied ?? []).map((x) => x.workstation_id));
-    const workstationId = workstations.find((w) => !occupiedIds.has(w.id))?.id;
+
+    const { data: occupied } = await db.from('appointments').select('workstation_id,employee_id').eq('business_id', service.business_id).lt('starts_at', endDate.toISOString()).gt('ends_at', startDate.toISOString()).not('status', 'in', '(CANCELLED,NO_SHOW)');
+    const occupiedWorkstations = new Set((occupied ?? []).map(x => x.workstation_id).filter(Boolean));
+    const workstationId = workstations.find(w => !occupiedWorkstations.has(w.id))?.id;
     if (!workstationId) return NextResponse.json({ error: 'SLOT_ALREADY_TAKEN' }, { status: 409 });
+
+    const occupiedEmployees = new Set((occupied ?? []).map(x => x.employee_id).filter(Boolean));
+    const employeeId = requestedEmployeeId && activeEmployees?.some(e => e.id === requestedEmployeeId && !occupiedEmployees.has(e.id))
+      ? requestedEmployeeId
+      : activeEmployees?.find(e => !occupiedEmployees.has(e.id))?.id ?? null;
 
     const { data, error } = await db.rpc('book_appointment', {
       p_business_service_id: businessServiceId,
@@ -60,13 +70,14 @@ export async function POST(request: Request) {
     }
 
     const appointmentId = typeof data === 'string' ? data : String(data ?? '');
+    const { data: createdAppointment } = await db.from('appointments').select('id,starts_at,ends_at,status,workstation:workstations(id,name,status),employee:employees(id,name,position,specialization)').eq('id', appointmentId).eq('user_id', user.id).maybeSingle();
     const businessName = business?.name ?? 'СТО';
     const serviceName = catalogService?.name ?? 'Услуга';
     const localStart = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Asia/Novosibirsk', dateStyle: 'medium', timeStyle: 'short' }).format(startDate);
     void db.from('notifications').insert({ user_id: user.id, type: 'BOOKING_CREATED', title: 'Запись создана', body: `${businessName} · ${serviceName} · ${localStart}`, payload: { appointment_id: appointmentId, business_id: service.business_id } });
     void sendTelegramToUser(user.id, `🚗 STO NSK\nЗапись создана.\n${businessName}\n${serviceName}\n${car.brand} ${car.model}\n${localStart}`);
 
-    return NextResponse.json({ appointment: data }, { status: 201 });
+    return NextResponse.json({ appointment: createdAppointment ?? { id: appointmentId }, resource_assignment: { workstation_id: workstationId, employee_id: employeeId } }, { status: 201 });
   } catch {
     return NextResponse.json({ error: 'INVALID_BOOKING_REQUEST' }, { status: 400 });
   }
