@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, feat/sto-nsk-foundation]
   pull_request:
     branches: [main]
 
@@ -16,9 +16,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
       - name: Install
         run: npm install
       - name: Typecheck
         run: npm run typecheck
       - name: Build
-        run: npm run build
+        run: npm run build:worker
