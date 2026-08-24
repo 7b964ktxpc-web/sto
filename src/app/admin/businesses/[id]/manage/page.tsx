@@ -2,8 +2,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 
-type Detail={business?:{id:string;name:string};employees:Array<{id:string;name:string;position:string|null;is_active:boolean}>;workstations:Array<{id:string;name:string;status:string}>};
-const wsStatuses=[['available','Свободен'],['maintenance','На обслуживании'],['inactive','Отключён']] as const;
+type Detail={business?:{id:string;name:string};employees:Array<{id:string;name:string;position:string|null;is_active:boolean}>;workstations:Array<{id:string;name:string;status:string;is_active:boolean}>};
+const wsStatuses=[['AVAILABLE','Свободен'],['BUSY','Занят'],['OFFLINE','Офлайн'],['MAINTENANCE','На обслуживании']] as const;
 
 export default function ManageBusinessPeople(){
  const {id}=useParams<{id:string}>(); const router=useRouter(); const [data,setData]=useState<Detail|null>(null); const [error,setError]=useState(''); const [busy,setBusy]=useState('');
