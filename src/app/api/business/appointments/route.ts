@@ -8,7 +8,13 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const from = url.searchParams.get('from');
   const to = url.searchParams.get('to');
-  let query = getAdminClient().from('appointments').select('id,starts_at,ends_at,status,user_id,car_id,business_service_id,workstation_id,notes').eq('business_id', membership.businessId).order('starts_at');
+  let query = getAdminClient().from('appointments').select(`
+    id,starts_at,ends_at,status,user_id,car_id,business_service_id,workstation_id,notes,
+    user:users(id,display_name,phone,email),
+    car:cars(id,brand,model,year,plate_number,mileage),
+    service:business_services(id,price,duration_minutes,service:services(id,name)),
+    workstation:workstations(id,name,status)
+  `).eq('business_id', membership.businessId).order('starts_at');
   if (from) query = query.gte('starts_at', new Date(from).toISOString());
   if (to) query = query.lt('starts_at', new Date(to).toISOString());
   const { data, error } = await query.limit(500);
