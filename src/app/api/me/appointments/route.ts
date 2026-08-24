@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/server/auth/session';
 import { getAdminClient } from '@/server/supabase/admin';
+import { sendTelegramToUser } from '@/server/notifications/telegram';
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -22,8 +23,8 @@ export async function POST(request: Request) {
     if (!businessServiceId || !carId || !start) return NextResponse.json({ error: 'BOOKING_FIELDS_REQUIRED' }, { status: 400 });
     const db = getAdminClient();
     const [{ data: car }, { data: service }] = await Promise.all([
-      db.from('cars').select('id').eq('id', carId).eq('user_id', user.id).maybeSingle(),
-      db.from('business_services').select('business_id,duration_minutes').eq('id', businessServiceId).eq('is_active', true).maybeSingle(),
+      db.from('cars').select('id,brand,model').eq('id', carId).eq('user_id', user.id).maybeSingle(),
+      db.from('business_services').select('business_id,duration_minutes,price,service:services(name),business:businesses(name)').eq('id', businessServiceId).eq('is_active', true).maybeSingle(),
     ]);
     if (!car) return NextResponse.json({ error: 'CAR_NOT_FOUND' }, { status: 400 });
     if (!service) return NextResponse.json({ error: 'SERVICE_NOT_FOUND' }, { status: 400 });
@@ -50,6 +51,11 @@ export async function POST(request: Request) {
       const message = error.message.includes('SLOT_ALREADY_TAKEN') || error.code === '23P01' ? 'Это время уже заняли. Выберите другой свободный слот.' : error.message.includes('OUTSIDE_WORKING_HOURS') ? 'Это время вне рабочего графика.' : 'Не удалось создать запись.';
       return NextResponse.json({ error: message }, { status: 409 });
     }
+
+    const businessName = Array.isArray(service.business) ? service.business[0]?.name : service.business?.name;
+    const serviceName = Array.isArray(service.service) ? service.service[0]?.name : service.service?.name;
+    void sendTelegramToUser(user.id, `🚗 STO NSK\nЗапись создана.\n${businessName ?? 'СТО'}\n${serviceName ?? 'Услуга'}\n${car.brand} ${car.model}\n${new Intl.DateTimeFormat('ru-RU',{timeZone:'Asia/Novosibirsk',dateStyle:'medium',timeStyle:'short'}).format(startDate)}`);
+
     return NextResponse.json({ appointment: data }, { status: 201 });
   } catch {
     return NextResponse.json({ error: 'INVALID_BOOKING_REQUEST' }, { status: 400 });
