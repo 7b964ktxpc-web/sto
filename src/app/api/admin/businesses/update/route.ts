@@ -22,7 +22,7 @@ export async function PATCH(request: Request) {
     if (!Object.keys(patch).length && address === undefined) return NextResponse.json({ error: 'NOTHING_TO_UPDATE' }, { status: 400 });
 
     const db = getAdminClient();
-    const { data: before, error: beforeError } = await db.from('businesses').select('id,name,phone,description,status,owner_user_id').eq('id', id).maybeSingle();
+    const { data: before, error: beforeError } = await db.from('businesses').select('id,name,phone,description,status').eq('id', id).maybeSingle();
     if (beforeError) throw beforeError;
     if (!before) return NextResponse.json({ error: 'BUSINESS_NOT_FOUND' }, { status: 404 });
     const { data: beforeLocation, error: locationReadError } = await db.from('business_locations').select('id,address,is_primary').eq('business_id', id).eq('is_primary', true).maybeSingle();
@@ -30,7 +30,7 @@ export async function PATCH(request: Request) {
 
     let after = before;
     if (Object.keys(patch).length) {
-      const { data: updated, error } = await db.from('businesses').update(patch).eq('id', id).select('id,name,slug,status,rating,review_count,phone,description,owner_user_id,created_at').single();
+      const { data: updated, error } = await db.from('businesses').update(patch).eq('id', id).select('id,name,slug,status,rating,review_count,phone,description,created_at').single();
       if (error) throw error;
       after = updated;
     }
