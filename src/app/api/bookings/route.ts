@@ -1,7 +1,6 @@
-import crypto from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/server/auth/session';
-import { getAdminClient } from '@/server/supabase/admin';
+import { getAdminClient, isAdminConfigured } from '@/server/supabase/admin';
 import { validateTelegramInitData } from '@/lib/telegram';
 
 function mapBookingError(message: string) {
@@ -21,9 +20,7 @@ export async function POST(request: Request) {
     const body = await request.json();
 
     const user = await getCurrentUser();
-    const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !key) return NextResponse.json({ error: 'SUPABASE_NOT_CONFIGURED' }, { status: 503 });
+    if (!isAdminConfigured()) return NextResponse.json({ error: 'SUPABASE_NOT_CONFIGURED' }, { status: 503 });
 
     const db = getAdminClient();
 
