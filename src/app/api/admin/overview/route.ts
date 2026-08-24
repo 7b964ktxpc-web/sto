@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
+import { requirePlatformRole } from '@/server/auth/platform';
 import { getAdminClient } from '@/server/supabase/admin';
+
 export async function GET(){
  try{
+  const auth=await requirePlatformRole(['ADMIN','SUPER_ADMIN','MODERATOR']);
+  if(!auth) return NextResponse.json({error:'ADMIN_ACCESS_REQUIRED'},{status:403});
   const db=getAdminClient();
   const [businesses,activeBusinesses,users,appointments,queues,reviews]=await Promise.all([
    db.from('businesses').select('id,name,status,rating,created_at', {count:'exact'}).order('created_at',{ascending:false}).limit(100),
