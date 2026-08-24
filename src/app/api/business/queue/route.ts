@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getBusinessMembership, canManageBusiness } from '@/server/auth/business';
 import { getAdminClient } from '@/server/supabase/admin';
+import { sendTelegramToUser } from '@/server/notifications/telegram';
 
 export async function GET() {
   const membership = await getBusinessMembership();
   if (!membership) return NextResponse.json({ error: 'BUSINESS_ACCESS_REQUIRED' }, { status: 403 });
-  const { data, error } = await getAdminClient().from('queues').select('id,is_open,mode,queue_entries(id,status,position,estimated_wait_minutes,created_at)').eq('business_id', membership.businessId).single();
+  const { data, error } = await getAdminClient().from('queues').select('id,is_open,mode,queue_entries(id,user_id,car_id,status,position,estimated_wait_minutes,created_at)').eq('business_id', membership.businessId).single();
   if (error) return NextResponse.json({ error: 'QUEUE_LOAD_FAILED' }, { status: 500 });
   return NextResponse.json({ queue: data });
 }
@@ -20,8 +21,25 @@ export async function PATCH(request: Request) {
     const position = body.position == null ? null : Number(body.position);
     const allowed = ['WAITING','CALLED','IN_SERVICE','READY','COMPLETED','CANCELLED','NO_SHOW'];
     if (!entryId || !allowed.includes(status)) return NextResponse.json({ error: 'QUEUE_UPDATE_REQUIRED' }, { status: 400 });
-    const { data, error } = await getAdminClient().rpc('business_update_queue_entry', { p_entry_id: entryId, p_status: status, p_position: position });
+
+    const db = getAdminClient();
+    const { data: before } = await db.from('queue_entries').select('id,user_id,position,estimated_wait_minutes,car_id').eq('id', entryId).maybeSingle();
+    if (!before) return NextResponse.json({ error: 'QUEUE_ENTRY_NOT_FOUND' }, { status: 404 });
+
+    const { data, error } = await db.rpc('business_update_queue_entry', { p_entry_id: entryId, p_status: status, p_position: position });
     if (error) return NextResponse.json({ error: error.message.includes('BUSINESS_ACCESS_REQUIRED') ? 'BUSINESS_ACCESS_REQUIRED' : 'QUEUE_UPDATE_FAILED' }, { status: 409 });
+
+    const resolvedPosition = Number(data?.position ?? position ?? before.position);
+    if (before.user_id) {
+      if (status === 'CALLED') {
+        void sendTelegramToUser(before.user_id, '🚗 Ваша очередь приближается\nВас вызывают на обслуживание.');
+      } else if (status === 'READY') {
+        void sendTelegramToUser(before.user_id, '✅ Автомобиль готов\nМожно забирать автомобиль из СТО.');
+      } else if (status === 'WAITING' && resolvedPosition <= 1) {
+        void sendTelegramToUser(before.user_id, '🚗 Вы следующий\nПеред вами остался 1 автомобиль или меньше.');
+      }
+    }
+
     return NextResponse.json({ entry: data });
   } catch {
     return NextResponse.json({ error: 'INVALID_QUEUE_UPDATE' }, { status: 400 });
