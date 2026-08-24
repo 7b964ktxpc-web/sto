@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Script from 'next/script';
 import MobileNav from '@/components/MobileNav';
 import './globals.css';
+import './business-mobile.css';
 
 export const metadata: Metadata = {
   title: 'НА ПОСТ',
