@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { requirePlatformRole } from '@/server/auth/platform';
 import { getAdminClient } from '@/server/supabase/admin';
 
-const allowedStatuses = new Set(['active','pending','blocked','suspended']);
+const allowedStatuses = new Set(['active','pending','suspended','rejected']);
 
 export async function PATCH(request: Request) {
   const auth = await requirePlatformRole(['ADMIN','SUPER_ADMIN']);
@@ -28,15 +28,17 @@ export async function PATCH(request: Request) {
     if (beforeError) throw beforeError;
     if (!before) return NextResponse.json({ error: 'BUSINESS_NOT_FOUND' }, { status: 404 });
 
-    const { data: after, error } = await db.from('businesses').update(patch).eq('id', id).select('id,name,slug,status,rating,review_count,address,phone,email,description,created_at').single();
+    const { data: after, error } = await db.from('businesses').update(patch).eq('id', id).select('id,name,slug,status,rating,reviews_count,address,phone,email,description,created_at').single();
     if (error) throw error;
 
     await db.from('audit_logs').insert({
       actor_user_id: auth.user.id,
+      business_id: id,
       action: 'ADMIN_BUSINESS_UPDATE',
       entity_type: 'business',
       entity_id: id,
-      metadata: { before, after, changed: patch },
+      before_data: before,
+      after_data: after,
     });
 
     return NextResponse.json({ business: after });
