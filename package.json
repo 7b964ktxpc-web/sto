@@ -9,6 +9,7 @@
     "dev": "next dev",
     "build": "next build",
     "build:next": "next build",
+    "build:worker": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
