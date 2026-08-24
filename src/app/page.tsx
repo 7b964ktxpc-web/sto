@@ -50,7 +50,7 @@ export default function Home() {
   }
 
   async function loadSlots(station: Station, businessServiceId: string, date: string) {
-    setSlotsLoading(true); setSlots([]); setSelectedSlot(''); setBookingSuccess('');
+    setSlotsLoading(true); setSlots([]); setSelectedSlot(''); setBookingSuccess(''); setError('');
     try {
       const r = await fetch(`/api/availability?businessId=${station.id}&businessServiceId=${businessServiceId}&date=${date}`);
       const x = await r.json(); if (!r.ok) throw new Error(x.error);
@@ -60,7 +60,7 @@ export default function Home() {
   }
 
   async function openBooking(station: Station) {
-    setSelected(station); setSelectedService(station.station_services[0]?.id ?? ''); setBookingDate(today); setSelectedSlot(''); setBookingSuccess(''); setAuthRequired(false);
+    setSelected(station); setSelectedService(station.station_services[0]?.id ?? ''); setBookingDate(today); setSelectedSlot(''); setBookingSuccess(''); setAuthRequired(false); setError('');
     await loadCars();
     await loadSlots(station, station.station_services[0]?.id ?? '', today);
   }
@@ -84,7 +84,7 @@ export default function Home() {
       <div className="toolbar"><div><h2>СТО рядом</h2><div className="muted">{loading ? 'Загружаем актуальные предложения…' : `${filtered.length} сервисов доступно`}</div></div><span className="pill">Список + карта</span></div>
       <div className="layout">
         <section className="results">
-          {error && <div className="card error">{error}</div>}
+          {error && !selected && <div className="card error">{error}</div>}
           {!loading && !error && filtered.length === 0 && <div className="card empty"><strong>Ничего не нашли</strong><div className="muted">Попробуйте другую услугу или название СТО.</div></div>}
           {loading && <div className="card">Загружаем сервисы…</div>}
           {filtered.map(s => <article className="card" key={s.id}><div className="status green">● Есть свободные посты</div><h2>{s.name}</h2><div className="muted">{s.address}</div><div style={{display:'flex',gap:14,margin:'10px 0 4px'}}><span className="rating">★ {s.rating || 0}</span><span className="muted">Новосибирск</span></div>{s.station_services.slice(0, 3).map(x => <div className="service-row" key={x.id}><span>{x.services?.name ?? 'Услуга'} · {x.duration_minutes} мин</span><strong>от {x.price.toLocaleString('ru-RU')} ₽</strong></div>)}<div style={{marginTop:14,display:'flex',gap:8}}><button className="primary" onClick={() => openBooking(s)}>Записаться</button><button className="pill" onClick={() => setSelected(s)}>Подробнее</button></div></article>)}
@@ -95,6 +95,7 @@ export default function Home() {
       {selected && <section className="card booking">
         <div className="toolbar" style={{margin:'0 0 8px'}}><div><span className="pill">Запись в СТО</span><h2>{selected.name}</h2><div className="muted">{selected.address} · ★ {selected.rating || 0}</div></div><button className="pill" onClick={() => setSelected(null)}>Закрыть</button></div>
         {authRequired && <div className="card" style={{marginBottom:12,background:'#fff7ed'}}><strong>Нужна авторизация</strong><div className="muted" style={{marginTop:4}}>Войдите в кабинет, добавьте автомобиль и вернитесь к бронированию.</div><a href="/account" className="primary" style={{display:'inline-block',textDecoration:'none',marginTop:10}}>Открыть кабинет</a></div>}
+        {error && selected && !slotsLoading && <div className="card error" style={{marginBottom:12}}>{error}</div>}
         <div className="service-row"><select value={selectedService} onChange={e => { const id=e.target.value; setSelectedService(id); loadSlots(selected,id,bookingDate); }} style={{padding:12,borderRadius:10,border:'1px solid #e2e8f0',flex:1}}>{selected.station_services.map(x => <option key={x.id} value={x.id}>{x.services?.name} · {x.price.toLocaleString('ru-RU')} ₽ · {x.duration_minutes} мин</option>)}</select><input type="date" min={today} value={bookingDate} onChange={e => { setBookingDate(e.target.value); loadSlots(selected,selectedService,e.target.value); }} style={{padding:12,borderRadius:10,border:'1px solid #e2e8f0'}} /></div>
         {!authRequired && cars.length > 0 && <div className="section"><div className="muted" style={{marginBottom:8}}>Автомобиль</div><select value={selectedCar} onChange={e=>setSelectedCar(e.target.value)} style={{width:'100%',padding:12,borderRadius:10,border:'1px solid #e2e8f0'}}>{cars.map(c=><option key={c.id} value={c.id}>{c.brand} {c.model}{c.plate_number?` · ${c.plate_number}`:''}</option>)}</select></div>}
         <div className="section"><div className="muted" style={{marginBottom:10}}>Свободное время</div>{slotsLoading ? <div className="card">Проверяем посты и занятые записи…</div> : slots.length ? <div style={{display:'flex',flexWrap:'wrap',gap:8}}>{slots.map(slot => { const label=new Intl.DateTimeFormat('ru-RU',{timeZone:'Asia/Novosibirsk',hour:'2-digit',minute:'2-digit'}).format(new Date(slot.slot_start)); return <button key={slot.slot_start} className={selectedSlot===slot.slot_start ? 'primary' : 'pill'} onClick={()=>setSelectedSlot(slot.slot_start)}>{label} · {slot.available_workstations} пост.</button>; })}</div> : <div className="card empty">На эту дату свободных слотов нет. Выберите другой день.</div>}</div>
