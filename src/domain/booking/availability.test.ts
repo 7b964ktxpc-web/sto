@@ -44,7 +44,7 @@ describe('getAvailableSlots', () => {
     const slots = getAvailableSlots({
       date: '2026-08-24',
       durationMinutes: 90,
-      windows: [{ start: '09:00', end: '14:00', breakStart: '12:00', breakEnd: '13:00' }],
+      windows: [{ start: '09:00', end: '15:00', breakStart: '12:00', breakEnd: '13:00' }],
       resources: [{ id: 'post-1', type: 'WORKSTATION' }],
       reservations: [],
       timezone: 'UTC',
@@ -56,6 +56,7 @@ describe('getAvailableSlots', () => {
       '2026-08-24T10:00:00.000Z',
       '2026-08-24T10:30:00.000Z',
       '2026-08-24T13:00:00.000Z',
+      '2026-08-24T13:30:00.000Z',
     ]);
   });
 });
