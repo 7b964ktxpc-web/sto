@@ -21,7 +21,7 @@ export async function POST(request: Request) {
       { user_id: appointment.user_id, notification_type: 'BOOKING_CHANGED', channel: 'TELEGRAM', title, body: message, payload: { appointment_id: id, manual: true } },
     ]);
     await db.from('appointment_events').insert({ appointment_id: id, actor_user_id: auth.user.id, event_type: 'appointment.notification_sent', payload: { title, message } });
-    await db.from('audit_logs').insert({ actor_user_id: auth.user.id, business_id: appointment.business_id, action: 'appointment.notification_sent', entity_type: 'appointment', entity_id: id, after_data: { title, message }, ip: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null, user_agent: request.headers.get('user-agent') });
+    await db.from('audit_logs').insert({ actor_user_id: auth.user.id, business_id: appointment.business_id, action: 'appointment.notification_sent', entity_type: 'appointment', entity_id: id, reason: 'Manual client notification', metadata: { title, message } });
     return NextResponse.json({ sent: true });
   } catch (error) {
     console.error('admin appointment notify', error);
