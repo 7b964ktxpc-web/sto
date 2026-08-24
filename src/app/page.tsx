@@ -66,14 +66,14 @@ export default function Home() {
     fetch(`/api/stations${service ? `?service=${encodeURIComponent(service)}` : ''}`)
       .then(async r => { const x = await r.json(); if (!r.ok) throw new Error(x.error); return x; })
       .then(async x => {
-        const nextStations = x.stations ?? [];
+        const nextStations = (x.stations ?? []) as Station[];
         setStations(nextStations);
         const raw = localStorage.getItem(BOOKING_INTENT_KEY);
         if (raw) {
           try {
             const intent = JSON.parse(raw) as BookingIntent;
             const station = nextStations.find((item: Station) => item.id === intent.businessId);
-            if (station && station.station_services.some(item => item.id === intent.businessServiceId)) {
+            if (station && station.station_services.some((item) => item.id === intent.businessServiceId)) {
               setSelected(station);
               setSelectedService(intent.businessServiceId);
               setBookingDate(intent.date);
