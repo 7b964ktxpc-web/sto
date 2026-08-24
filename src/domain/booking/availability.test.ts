@@ -40,7 +40,7 @@ describe('getAvailableSlots', () => {
     ]);
   });
 
-  it('excludes a slot that actually overlaps a technical break', () => {
+  it('excludes slots that actually overlap a technical break', () => {
     const slots = getAvailableSlots({
       date: '2026-08-24',
       durationMinutes: 90,
@@ -53,6 +53,8 @@ describe('getAvailableSlots', () => {
     expect(slots.map(x => x.start.toISOString())).toEqual([
       '2026-08-24T09:00:00.000Z',
       '2026-08-24T09:30:00.000Z',
+      '2026-08-24T10:00:00.000Z',
+      '2026-08-24T10:30:00.000Z',
       '2026-08-24T13:00:00.000Z',
     ]);
   });
