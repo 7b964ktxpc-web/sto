@@ -61,7 +61,7 @@ export async function GET(request: Request) {
     const catalog = serviceById.get(item.service_id);
     if (!catalog) continue;
     const list = serviceByBusiness.get(item.business_id) ?? [];
-    list.push({ ...item, service: catalog });
+    list.push({ ...item, service: catalog, services: catalog });
     serviceByBusiness.set(item.business_id, list);
   }
 
