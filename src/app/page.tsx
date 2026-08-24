@@ -31,6 +31,8 @@ export default function Home() {
   const [bookingBusy, setBookingBusy] = useState(false);
   const [bookingResult, setBookingResult] = useState<BookingResult|null>(null);
   const [error, setError] = useState('');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [showMap, setShowMap] = useState(false);
 
   async function loadCars() {
     const r = await fetch('/api/me/cars');
@@ -56,7 +58,8 @@ export default function Home() {
 
   async function openBooking(station: Station) {
     const businessServiceId = station.station_services[0]?.id ?? '';
-    localStorage.setItem(BOOKING_INTENT_KEY, JSON.stringify({ businessId: station.id, businessServiceId, date: today, slotStart: '' }));
+    const intent = { businessId: station.id, businessServiceId, date: today, slotStart: '' };
+    localStorage.setItem(BOOKING_INTENT_KEY, JSON.stringify(intent));
     setSelected(station); setSelectedService(businessServiceId); setBookingDate(today); setSelectedSlot(''); setBookingResult(null); setAuthRequired(false); setError('');
     await loadCars();
     if (businessServiceId) await loadSlots(station, businessServiceId, today);
@@ -106,31 +109,51 @@ export default function Home() {
   }
 
   return <main className="page">
-    <header className="hero"><div className="hero-inner"><span className="eyebrow">STO NSK · Новосибирск</span><h1>Найдите СТО и запишитесь без звонков</h1><p>Сравните цену, рейтинг и свободное время. Запись занимает меньше минуты.</p></div></header>
+    <header className="hero">
+      <div className="hero-inner">
+        <div className="location-pill">⌖ Новосибирск <span>⌄</span></div>
+        <h1>Найдите СТО и запишитесь без звонков</h1>
+        <p>Сравните цену, рейтинг и свободное время. Запись занимает меньше минуты.</p>
+      </div>
+    </header>
+
     <div className="content">
-      <div className="search"><input value={query} onChange={e => setQuery(e.target.value)} placeholder="СТО, услуга или район" aria-label="Поиск СТО" /><select value={service} onChange={e => setService(e.target.value)} aria-label="Услуга"><option value="">Все услуги</option>{services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select><button onClick={() => setQuery(query.trim())}>Найти</button></div>
-      <div className="toolbar"><div><h2>СТО рядом</h2><div className="muted">{loading ? 'Загружаем актуальные предложения…' : `${filtered.length} сервисов доступно`}</div></div><span className="pill">Список + карта</span></div>
-      <div className="layout">
-        <section className="results">
-          {error && !selected && <div className="card error">{error}</div>}
-          {!loading && !error && filtered.length === 0 && <div className="card empty"><strong>Ничего не нашли</strong><div className="muted">Попробуйте другую услугу или название СТО.</div></div>}
-          {loading && <div className="card">Загружаем сервисы…</div>}
-          {filtered.map(s => <article className="card" key={s.id}><div className="status green">● Есть свободные посты</div><h2>{s.name}</h2><div className="muted">{s.address}</div><div style={{display:'flex',gap:14,margin:'10px 0 4px'}}><span className="rating">★ {s.rating || 0}</span><span className="muted">Новосибирск</span></div>{s.station_services.slice(0, 3).map(x => <div className="service-row" key={x.id}><span>{x.services?.name ?? 'Услуга'} · {x.duration_minutes} мин</span><strong>от {x.price.toLocaleString('ru-RU')} ₽</strong></div>)}<div style={{marginTop:14,display:'flex',gap:8}}><button className="primary" onClick={() => void openBooking(s)}>Записаться</button><button className="pill" onClick={() => setSelected(s)}>Подробнее</button></div></article>)}
-        </section>
-        <section className="map" aria-label="Карта СТО"><CityMap stations={filtered.map(s => ({ id: s.id, name: s.name, lat: s.lat, lng: s.lng }))}/></section>
+      <div className="search-wrap">
+        <div className="search-main">
+          <span className="search-icon">⌕</span>
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="СТО, услуга или район" aria-label="Поиск СТО" />
+          <button className="filter-btn" onClick={() => setFilterOpen(v => !v)} aria-label="Фильтр">☷</button>
+        </div>
+        {filterOpen && <div className="filter-row"><select value={service} onChange={e => setService(e.target.value)} aria-label="Услуга"><option value="">Все услуги</option>{services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select><button className="primary compact" onClick={() => setFilterOpen(false)}>Применить</button></div>}
       </div>
 
-      {selected && <section className="card booking">
-        <div className="toolbar" style={{margin:'0 0 8px'}}><div><span className="pill">Запись в СТО</span><h2>{selected.name}</h2><div className="muted">{selected.address} · ★ {selected.rating || 0}</div></div><button className="pill" onClick={() => setSelected(null)}>Закрыть</button></div>
-        {authRequired && <div className="card" style={{marginBottom:12,background:'#fff7ed'}}><strong>Нужна авторизация</strong><div className="muted" style={{marginTop:4}}>Войдите в кабинет, добавьте автомобиль и вернитесь к бронированию.</div><a href="/auth?returnTo=/marketplace" className="primary" style={{display:'inline-block',textDecoration:'none',marginTop:10}}>Войти и продолжить</a></div>}
-        {error && selected && !slotsLoading && <div className="card error" style={{marginBottom:12}}>{error}</div>}
-        <div className="service-row"><select value={selectedService} onChange={e => { const id=e.target.value; setSelectedService(id); localStorage.setItem(BOOKING_INTENT_KEY, JSON.stringify({ businessId:selected.id, businessServiceId:id, date:bookingDate, slotStart:'' })); loadSlots(selected,id,bookingDate); }} style={{padding:12,borderRadius:10,border:'1px solid #e2e8f0',flex:1}}>{selected.station_services.map(x => <option key={x.id} value={x.id}>{x.services?.name} · {x.price.toLocaleString('ru-RU')} ₽ · {x.duration_minutes} мин</option>)}</select><input type="date" min={today} value={bookingDate} onChange={e => { const date=e.target.value; setBookingDate(date); localStorage.setItem(BOOKING_INTENT_KEY, JSON.stringify({ businessId:selected.id, businessServiceId:selectedService, date, slotStart:'' })); loadSlots(selected,selectedService,date); }} style={{padding:12,borderRadius:10,border:'1px solid #e2e8f0'}} /></div>
-        {!authRequired && cars.length > 0 && <div className="section"><div className="muted" style={{marginBottom:8}}>Автомобиль</div><select value={selectedCar} onChange={e=>setSelectedCar(e.target.value)} style={{width:'100%',padding:12,borderRadius:10,border:'1px solid #e2e8f0'}}>{cars.map(c=><option key={c.id} value={c.id}>{c.brand} {c.model}{c.plate_number?` · ${c.plate_number}`:''}</option>)}</select></div>}
-        <div className="section"><div className="muted" style={{marginBottom:10}}>Свободное время</div>{slotsLoading ? <div className="card">Проверяем посты и занятые записи…</div> : slots.length ? <div style={{display:'flex',flexWrap:'wrap',gap:8}}>{slots.map(slot => { const label=new Intl.DateTimeFormat('ru-RU',{timeZone:'Asia/Novosibirsk',hour:'2-digit',minute:'2-digit'}).format(new Date(slot.slot_start)); return <button key={slot.slot_start} className={selectedSlot===slot.slot_start ? 'primary' : 'pill'} onClick={()=>{setSelectedSlot(slot.slot_start); localStorage.setItem(BOOKING_INTENT_KEY, JSON.stringify({ businessId:selected.id, businessServiceId:selectedService, date:bookingDate, slotStart:slot.slot_start }));}}>{label} · {slot.available_workstations} пост.</button>; })}</div> : <div className="card empty">На эту дату свободных слотов нет. Выберите другой день.</div>}</div>
-        {selectedSlot && !authRequired && !bookingResult && <div className="card" style={{marginTop:14,background:'#f8fafc'}}><strong>Слот выбран: {new Intl.DateTimeFormat('ru-RU',{timeZone:'Asia/Novosibirsk',dateStyle:'medium',timeStyle:'short'}).format(new Date(selectedSlot))}</strong><div className="muted" style={{marginTop:4}}>Пост и сотрудник будут назначены автоматически при подтверждении.</div><button className="primary" style={{marginTop:12}} disabled={bookingBusy||!cars.length} onClick={()=>void confirmBooking()}>{bookingBusy?'Создаём запись…':'Подтвердить запись'}</button></div>}
-        {bookingResult && <div className="card" style={{marginTop:14}}><div className="status green">● Запись создана</div><h3 style={{margin:'8px 0'}}>Всё готово</h3><div className="service-row"><span>Дата и время</span><strong>{bookingResult.appointment?.starts_at ? new Intl.DateTimeFormat('ru-RU',{timeZone:'Asia/Novosibirsk',dateStyle:'medium',timeStyle:'short'}).format(new Date(bookingResult.appointment.starts_at)) : 'Подтверждено'}</strong></div>{bookingResult.appointment?.workstation?.name&&<div className="service-row"><span>Назначенный пост</span><strong>{bookingResult.appointment.workstation.name}</strong></div>}{bookingResult.appointment?.employee?.name&&<div className="service-row"><span>Сотрудник</span><strong>{bookingResult.appointment.employee.name}</strong></div>}<div className="muted" style={{marginTop:8}}>Ресурсы СТО распределены автоматически. Запись можно посмотреть в личном кабинете.</div><div style={{marginTop:10}}><a href="/account" className="primary" style={{display:'inline-block',textDecoration:'none'}}>Мои записи</a></div></div>}
-      </section>}
-      <section className="section"><div className="feature-grid"><div className="feature"><strong>Цена до записи</strong><span className="muted">Сравнивайте предложения разных СТО.</span></div><div className="feature"><strong>Реальные слоты</strong><span className="muted">Availability engine учитывает рабочие часы и занятые посты.</span></div><div className="feature"><strong>Живая очередь</strong><span className="muted">Следите за позицией автомобиля в реальном времени.</span></div></div></section>
+      <div className="view-switch"><button className={!showMap ? 'active' : ''} onClick={() => setShowMap(false)}>Список</button><button className={showMap ? 'active' : ''} onClick={() => setShowMap(true)}>Карта</button></div>
+
+      <div className="toolbar-row"><div><h2>СТО рядом</h2><div className="muted">{loading ? 'Загружаем актуальные предложения…' : `${filtered.length} сервисов доступно`}</div></div><select className="sort-select" defaultValue="near"><option value="near">Сначала ближайшие</option><option value="rating">Лучший рейтинг</option><option value="price">Сначала дешевле</option></select></div>
+
+      {!showMap ? <section className="results">
+        {error && !selected && <div className="card error">{error}</div>}
+        {!loading && !error && filtered.length === 0 && <div className="card empty"><strong>Ничего не нашли</strong><div className="muted">Попробуйте другую услугу или название СТО.</div></div>}
+        {loading && <div className="card">Загружаем сервисы…</div>}
+        {filtered.map(s => <article className="station-card" key={s.id}><div className="station-top"><div className="status green">● Открыто</div><button className="icon-btn" aria-label="Избранное">♡</button></div><div className="station-body"><div className="station-placeholder" aria-hidden="true">🚗</div><div className="station-info"><h3>{s.name}</h3><div className="muted">{s.address}</div><div className="station-meta"><span className="rating">★ {s.rating || 0}</span><span className="muted">Новосибирск</span></div><div className="station-tags">{s.station_services.slice(0, 3).map(x => <span key={x.id}>{x.services?.name ?? 'Услуга'}</span>)}</div></div></div><div className="station-bottom"><div><span className="muted small">от</span> <strong>{Math.min(...s.station_services.map(x => x.price), 0).toLocaleString('ru-RU')} ₽</strong></div><button className="primary" onClick={() => void openBooking(s)}>Записаться</button></div></article>)}
+      </section> : <section className="map-large"><CityMap stations={filtered.map(s => ({ id: s.id, name: s.name, lat: s.lat, lng: s.lng }))}/></section>}
+
+      <section className="feature-grid"><div className="feature"><strong>Цена до записи</strong><span className="muted">Сравнивайте предложения разных СТО.</span></div><div className="feature"><strong>Реальные слоты</strong><span className="muted">Учитываем рабочие часы и занятые посты.</span></div><div className="feature"><strong>Живая очередь</strong><span className="muted">Следите за позицией автомобиля.</span></div></section>
     </div>
+
+    {selected && <div className="booking-overlay" onMouseDown={e => { if (e.target === e.currentTarget) setSelected(null); }}>
+      <section className="booking-sheet" role="dialog" aria-modal="true" aria-label="Запись в СТО">
+        <div className="sheet-handle" /><div className="sheet-head"><div><span className="pill">Запись в СТО</span><h2>{selected.name}</h2><div className="muted">{selected.address} · ★ {selected.rating || 0}</div></div><button className="icon-btn close" onClick={() => setSelected(null)} aria-label="Закрыть">×</button></div>
+        {authRequired && <div className="auth-card"><strong>Сначала войдите</strong><div className="muted">После входа мы вернём вас сюда с выбранными данными.</div><a href="/auth?returnTo=/marketplace" className="primary">Войти и продолжить</a></div>}
+        {error && <div className="card error">{error}</div>}
+        <div className="booking-block"><div className="section-title">Выберите услугу</div><div className="service-options">{selected.station_services.map(x => <button key={x.id} className={selectedService===x.id ? 'service-option selected' : 'service-option'} onClick={() => { setSelectedService(x.id); setSelectedSlot(''); setBookingResult(null); loadSlots(selected,x.id,bookingDate); localStorage.setItem(BOOKING_INTENT_KEY, JSON.stringify({ businessId:selected.id, businessServiceId:x.id, date:bookingDate, slotStart:'' })); }}><span><strong>{x.services?.name ?? 'Услуга'}</strong><small>{x.duration_minutes} мин · от {x.price.toLocaleString('ru-RU')} ₽</small></span><span className="radio-dot" /></button>)}</div></div>
+        <div className="booking-block"><div className="section-title">Выберите дату</div><div className="date-row">{[0,1,2,3].map(offset => { const d = new Date(`${today}T12:00:00`); d.setDate(d.getDate()+offset); const value = new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Novosibirsk'}).format(d); const label = offset===0?'Сегодня':offset===1?'Завтра':new Intl.DateTimeFormat('ru-RU',{weekday:'short',day:'2-digit',month:'short',timeZone:'Asia/Novosibirsk'}).format(d); return <button key={value} className={bookingDate===value?'date-chip selected':'date-chip'} onClick={() => { setBookingDate(value); setSelectedSlot(''); loadSlots(selected,selectedService,value); localStorage.setItem(BOOKING_INTENT_KEY, JSON.stringify({ businessId:selected.id,businessServiceId:selectedService,date:value,slotStart:'' })); }}>{label}<b>{new Intl.DateTimeFormat('ru-RU',{day:'2-digit',month:'short',timeZone:'Asia/Novosibirsk'}).format(d)}</b></button>; })}<input className="date-picker" type="date" min={today} value={bookingDate} onChange={e => { const value=e.target.value; setBookingDate(value); setSelectedSlot(''); loadSlots(selected,selectedService,value); }} /></div></div>
+        <div className="booking-block"><div className="section-title split"><span>Свободное время</span><small>{slotsLoading?'Обновляем…':'Актуально сейчас'}</small></div>{slotsLoading ? <div className="slots-loading">Проверяем свободные посты…</div> : slots.length ? <div className="slot-grid">{slots.map(slot => { const label=new Intl.DateTimeFormat('ru-RU',{timeZone:'Asia/Novosibirsk',hour:'2-digit',minute:'2-digit'}).format(new Date(slot.slot_start)); return <button key={slot.slot_start} className={selectedSlot===slot.slot_start?'slot-chip selected':'slot-chip'} onClick={() => { setSelectedSlot(slot.slot_start); localStorage.setItem(BOOKING_INTENT_KEY, JSON.stringify({ businessId:selected.id,businessServiceId:selectedService,date:bookingDate,slotStart:slot.slot_start })); }}>{label}</button>; })}</div> : <div className="slots-empty">Свободных слотов на эту дату нет. Выберите другую дату.</div>}</div>
+        {!authRequired && !bookingResult && <div className="booking-bottom"><div>{selectedSlot ? <><strong>{new Intl.DateTimeFormat('ru-RU',{timeZone:'Asia/Novosibirsk',dateStyle:'medium',timeStyle:'short'}).format(new Date(selectedSlot))}</strong><span className="muted">Пост будет назначен автоматически</span></> : <span className="muted">Выберите удобное время</span>}</div><button className="primary confirm" disabled={!selectedSlot||!selectedCar||bookingBusy} onClick={() => void confirmBooking()}>{bookingBusy?'Создаём…':'Записаться'}</button></div>}
+        {!authRequired && cars.length===0 && <div className="auth-card compact-auth"><strong>Добавьте автомобиль</strong><div className="muted">Без автомобиля мы не сможем завершить запись.</div><a href="/account" className="secondary-btn">Открыть кабинет</a></div>}
+        {bookingResult && <div className="success-card"><div className="status green">● Запись создана</div><h3>Всё готово</h3><div className="muted">{bookingResult.appointment?.starts_at ? new Intl.DateTimeFormat('ru-RU',{timeZone:'Asia/Novosibirsk',dateStyle:'medium',timeStyle:'short'}).format(new Date(bookingResult.appointment.starts_at)) : 'Запись подтверждена'}</div><a href="/account" className="primary">Мои записи</a></div>}
+        {!authRequired && cars.length>0 && <select className="car-select" value={selectedCar} onChange={e=>setSelectedCar(e.target.value)}>{cars.map(c=><option key={c.id} value={c.id}>{c.brand} {c.model}{c.plate_number?` · ${c.plate_number}`:''}</option>)}</select>}
+      </section>
+    </div>}
   </main>;
 }
