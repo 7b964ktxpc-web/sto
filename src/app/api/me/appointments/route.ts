@@ -21,15 +21,22 @@ export async function POST(request: Request) {
     const start = String(body.starts_at ?? '');
     const employeeId = body.employee_id ? String(body.employee_id) : null;
     if (!businessServiceId || !carId || !start) return NextResponse.json({ error: 'BOOKING_FIELDS_REQUIRED' }, { status: 400 });
+
     const db = getAdminClient();
     const [{ data: car }, { data: service }] = await Promise.all([
       db.from('cars').select('id,brand,model').eq('id', carId).eq('user_id', user.id).maybeSingle(),
-      db.from('business_services').select('business_id,duration_minutes,price,service:services(name),business:businesses(name)').eq('id', businessServiceId).eq('is_active', true).maybeSingle(),
+      db.from('business_services').select('business_id,duration_minutes,price,service_id').eq('id', businessServiceId).eq('is_active', true).maybeSingle(),
     ]);
     if (!car) return NextResponse.json({ error: 'CAR_NOT_FOUND' }, { status: 400 });
     if (!service) return NextResponse.json({ error: 'SERVICE_NOT_FOUND' }, { status: 400 });
 
+    const [{ data: catalogService }, { data: business }] = await Promise.all([
+      db.from('services').select('name').eq('id', service.service_id).maybeSingle(),
+      db.from('businesses').select('name').eq('id', service.business_id).maybeSingle(),
+    ]);
+
     const startDate = new Date(start);
+    if (Number.isNaN(startDate.getTime())) return NextResponse.json({ error: 'INVALID_START_TIME' }, { status: 400 });
     const endDate = new Date(startDate.getTime() + Number(service.duration_minutes) * 60_000);
     const { data: workstations } = await db.from('workstations').select('id').eq('business_id', service.business_id).eq('is_active', true).eq('status', 'AVAILABLE').order('name');
     if (!workstations?.length) return NextResponse.json({ error: 'NO_AVAILABLE_WORKSTATIONS' }, { status: 409 });
@@ -52,9 +59,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: message }, { status: 409 });
     }
 
-    const businessName = Array.isArray(service.business) ? service.business[0]?.name : service.business?.name;
-    const serviceName = Array.isArray(service.service) ? service.service[0]?.name : service.service?.name;
-    void sendTelegramToUser(user.id, `🚗 STO NSK\nЗапись создана.\n${businessName ?? 'СТО'}\n${serviceName ?? 'Услуга'}\n${car.brand} ${car.model}\n${new Intl.DateTimeFormat('ru-RU',{timeZone:'Asia/Novosibirsk',dateStyle:'medium',timeStyle:'short'}).format(startDate)}`);
+    void sendTelegramToUser(user.id, `🚗 STO NSK\nЗапись создана.\n${business?.name ?? 'СТО'}\n${catalogService?.name ?? 'Услуга'}\n${car.brand} ${car.model}\n${new Intl.DateTimeFormat('ru-RU', { timeZone: 'Asia/Novosibirsk', dateStyle: 'medium', timeStyle: 'short' }).format(startDate)}`);
 
     return NextResponse.json({ appointment: data }, { status: 201 });
   } catch {
