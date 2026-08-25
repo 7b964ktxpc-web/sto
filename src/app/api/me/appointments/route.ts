@@ -74,10 +74,35 @@ export async function POST(request: Request) {
     const businessName = business?.name ?? 'СТО';
     const serviceName = catalogService?.name ?? 'Услуга';
     const localStart = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Asia/Novosibirsk', dateStyle: 'medium', timeStyle: 'short' }).format(startDate);
-    void db.from('notifications').insert({ user_id: user.id, type: 'BOOKING_CREATED', title: 'Запись создана', body: `${businessName} · ${serviceName} · ${localStart}`, payload: { appointment_id: appointmentId, business_id: service.business_id } });
-    void sendTelegramToUser(user.id, `🚗 STO NSK\nЗапись создана.\n${businessName}\n${serviceName}\n${car.brand} ${car.model}\n${localStart}`);
 
-    return NextResponse.json({ appointment: createdAppointment ?? { id: appointmentId }, resource_assignment: { workstation_id: workstationId, employee_id: employeeId } }, { status: 201 });
+    const notificationResult = await db.from('notifications').insert({
+      user_id: user.id,
+      type: 'BOOKING_CREATED',
+      title: 'Запись создана',
+      body: `${businessName} · ${serviceName} · ${localStart}`,
+      payload: { appointment_id: appointmentId, business_id: service.business_id },
+    });
+    if (notificationResult.error) {
+      console.warn('booking web notification not created', { userId: user.id, appointmentId, error: notificationResult.error.message });
+    }
+
+    let telegramSent = false;
+    try {
+      const telegram = await sendTelegramToUser(user.id, `🚗 STO NSK\nЗапись создана.\n${businessName}\n${serviceName}\n${car.brand} ${car.model}\n${localStart}`);
+      telegramSent = telegram.sent;
+      if (!telegram.sent) console.warn('booking telegram notification not sent', { userId: user.id, appointmentId, reason: telegram.reason });
+    } catch (telegramError) {
+      console.warn('booking telegram notification failed', { userId: user.id, appointmentId, error: telegramError instanceof Error ? telegramError.message : String(telegramError) });
+    }
+
+    return NextResponse.json({
+      appointment: createdAppointment ?? { id: appointmentId },
+      resource_assignment: { workstation_id: workstationId, employee_id: employeeId },
+      notifications: {
+        web: !notificationResult.error,
+        telegram: telegramSent,
+      },
+    }, { status: 201 });
   } catch {
     return NextResponse.json({ error: 'INVALID_BOOKING_REQUEST' }, { status: 400 });
   }
