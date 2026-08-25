@@ -29,8 +29,10 @@ export async function PATCH(request: Request) {
     await db.from('audit_logs').insert({ actor_user_id: auth.user.id, business_id: before.data.business_id, action, entity_type: 'appointment', entity_id: id, reason: 'Admin appointment update', metadata: { before: before.data, after: updated.data, patch } });
     const notificationType = patch.status === 'CANCELLED' ? 'BOOKING_CANCELLED' : (patch.starts_at ? 'BOOKING_CHANGED' : null);
     if (notificationType) {
-      await db.from('notifications').insert({ user_id: before.data.user_id, notification_type: notificationType, channel: 'WEB', title: notificationType === 'BOOKING_CANCELLED' ? 'Запись отменена' : 'Запись изменена', body: notificationType === 'BOOKING_CANCELLED' ? 'Администратор отменил вашу запись.' : 'Администратор изменил детали вашей записи.', payload: { appointment_id: id } });
-      await db.from('notifications').insert({ user_id: before.data.user_id, notification_type: notificationType, channel: 'TELEGRAM', title: notificationType === 'BOOKING_CANCELLED' ? 'Запись отменена' : 'Запись изменена', body: notificationType === 'BOOKING_CANCELLED' ? 'Администратор отменил вашу запись.' : 'Администратор изменил детали вашей записи.', payload: { appointment_id: id } });
+      const title = notificationType === 'BOOKING_CANCELLED' ? 'Запись отменена' : 'Запись изменена';
+      const bodyText = notificationType === 'BOOKING_CANCELLED' ? 'Администратор отменил вашу запись.' : 'Администратор изменил детали вашей записи.';
+      const notification = await db.from('notifications').insert({ user_id: before.data.user_id, type: notificationType, title, body: bodyText, payload: { appointment_id: id } }).select('id').maybeSingle();
+      if (notification.error) throw notification.error;
     }
     return NextResponse.json({ appointment: updated.data, notified: Boolean(notificationType) });
   } catch (error) {
