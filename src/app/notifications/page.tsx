@@ -26,26 +26,35 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     setError('');
     try {
-      const response = await fetch('/api/notifications');
+      const response = await fetch('/api/notifications', { cache: 'no-store' });
       const data = await response.json();
       if (!response.ok) {
-        setItems([]);
+        if (showLoading) setItems([]);
         setError(response.status === 401 ? 'Войдите в кабинет, чтобы увидеть уведомления.' : (data.error || 'Не удалось загрузить уведомления.'));
         return;
       }
       setItems(data.notifications ?? []);
     } catch {
-      setError('Не удалось загрузить уведомления. Проверьте соединение и попробуйте ещё раз.');
+      if (showLoading) setError('Не удалось загрузить уведомления. Проверьте соединение и попробуйте ещё раз.');
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void load();
+    const timer = window.setInterval(() => { void load(false); }, 15000);
+    const onVisible = () => { if (document.visibilityState === 'visible') void load(false); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, []);
 
   const unreadCount = useMemo(() => items.filter(item => !item.read_at).length, [items]);
 
