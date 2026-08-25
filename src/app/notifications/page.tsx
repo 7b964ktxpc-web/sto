@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 type NotificationItem = { id: string; type: string; title: string; body: string; read_at: string | null; created_at: string };
 
 const typeLabels: Record<string, string> = {
+  BOOKING_CREATED: 'Новая запись',
   APPOINTMENT_CREATED: 'Новая запись',
   APPOINTMENT_CONFIRMED: 'Запись подтверждена',
   APPOINTMENT_RESCHEDULED: 'Запись перенесена',
