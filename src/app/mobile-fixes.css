@@ -1,0 +1,51 @@
+/* Mobile UX hardening: keep primary actions inside their containers. */
+@media (max-width: 560px) {
+  .station-bottom {
+    align-items: stretch;
+  }
+
+  .station-bottom > strong {
+    min-width: 0;
+    flex: 1 1 auto;
+    line-height: 1.2;
+  }
+
+  .station-book {
+    min-width: 0 !important;
+    flex: 0 1 124px;
+    width: auto;
+    max-width: 46%;
+    padding-inline: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .auth-card .primary {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 12px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: center;
+  }
+
+  .booking-summary {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .booking-summary > div {
+    width: 100%;
+  }
+
+  .booking-confirm {
+    min-width: 0 !important;
+    width: 100%;
+    padding-inline: 12px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: center;
+  }
+}
