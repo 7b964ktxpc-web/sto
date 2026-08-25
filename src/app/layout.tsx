@@ -4,6 +4,7 @@ import MobileNav from '@/components/MobileNav';
 import './globals.css';
 import './business-mobile.css';
 import './design-system.css';
+import './mobile-fixes.css';
 
 export const metadata: Metadata = {
   title: 'НА ПОСТ',
