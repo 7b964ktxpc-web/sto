@@ -7,11 +7,13 @@ import { usePathname } from 'next/navigation';
 export default function MobileNav() {
   const pathname = usePathname();
 
-  // Keep the customer bottom navigation isolated from Admin, Business and Telegram UI.
-  // Those areas have their own navigation and the global bar caused visual overlap.
+  // Keep the customer bottom navigation isolated from screens that have their own
+  // navigation or a focused auth/account layout.
   const isPrivateAppArea =
     pathname === '/auth' ||
     pathname.startsWith('/auth/') ||
+    pathname === '/account' ||
+    pathname.startsWith('/account/') ||
     pathname === '/admin' ||
     pathname.startsWith('/admin/') ||
     pathname === '/business' ||
@@ -29,7 +31,7 @@ export default function MobileNav() {
         <Home size={20} />
         <small>Главная</small>
       </Link>
-      <Link href="/account#favorites" className={pathname.startsWith('/account') ? 'active' : ''}>
+      <Link href="/account#favorites" className="nav-account-link">
         <Heart size={20} />
         <small>Избранное</small>
       </Link>
@@ -41,7 +43,7 @@ export default function MobileNav() {
         <Bell size={20} />
         <small>Уведомления</small>
       </Link>
-      <Link href="/account" className={pathname === '/account' ? 'active' : ''}>
+      <Link href="/account" className="nav-profile-link">
         <UserRound size={20} />
         <small>Профиль</small>
       </Link>
