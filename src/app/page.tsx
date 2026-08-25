@@ -206,6 +206,7 @@ export default function Home() {
     setAuthRequired(false);
     setBookingResult(null);
     setError('');
+    localStorage.removeItem(BOOKING_INTENT_KEY);
   }
 
   useEffect(() => {
@@ -383,7 +384,7 @@ export default function Home() {
               <div className="booking-title">Выберите дату</div>
               <div className="date-options">
                 {nextDates().map(d => <button key={d.value} className={`date-option ${bookingDate === d.value ? 'selected' : ''}`} onClick={() => { setBookingDate(d.value); setSelectedSlot(''); localStorage.setItem(BOOKING_INTENT_KEY, JSON.stringify({ businessId:selected.id,businessServiceId:selectedService,date:d.value,slotStart:'' })); void loadSlots(selected, selectedService, d.value); }}><strong>{d.title}</strong><span>{d.sub}</span></button>)}
-                <label className="date-picker-button"><input type="date" min={today} value={bookingDate} onChange={e => { const value=e.target.value; setBookingDate(value); setSelectedSlot(''); void loadSlots(selected, selectedService, value); }} aria-label="Дата" /><span>⌁</span></label>
+                <label className="date-picker-button"><input type="date" min={today} value={bookingDate} onChange={e => { const value=e.target.value; setBookingDate(value); setSelectedSlot(''); localStorage.setItem(BOOKING_INTENT_KEY, JSON.stringify({ businessId:selected.id,businessServiceId:selectedService,date:value,slotStart:'' })); void loadSlots(selected, selectedService, value); }} aria-label="Дата" /><span>⌁</span></label>
               </div>
             </div>
 
