@@ -29,6 +29,7 @@ const labels: Record<string, string> = {
 const statuses = Object.keys(labels);
 const TZ = 'Asia/Novosibirsk';
 const fmt = (value: string) => new Intl.DateTimeFormat('ru-RU', { timeZone: TZ, dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+const inputDateTime = (value: string) => new Date(value).toISOString().slice(0, 16);
 
 export default function AdminAppointmentPage() {
   const { id } = useParams<{ id: string }>();
@@ -45,7 +46,7 @@ export default function AdminAppointmentPage() {
     if (!response.ok) throw new Error(data.error || 'LOAD_FAILED');
     const next = data.appointment as Appointment;
     setAppointment(next); setStatus(next.status);
-    setStarts(new Date(next.starts_at).toISOString().slice(0, 16)); setEnds(new Date(next.ends_at).toISOString().slice(0, 16));
+    setStarts(inputDateTime(next.starts_at)); setEnds(inputDateTime(next.ends_at));
     setNote(next.notes || '');
   }
 
@@ -63,7 +64,13 @@ export default function AdminAppointmentPage() {
       const data = await response.json();
       if (response.status === 403) { router.replace('/admin/login'); return; }
       if (!response.ok) throw new Error(data.error || 'SAVE_FAILED');
-      setMessage(data.notified ? 'Сохранено. Клиент уведомлён в приложении и Telegram.' : 'Сохранено.'); setAppointment(data.appointment);
+      const next = data.appointment as Appointment;
+      setAppointment(next);
+      setStatus(next.status);
+      setStarts(inputDateTime(next.starts_at));
+      setEnds(inputDateTime(next.ends_at));
+      setNote(next.notes || '');
+      setMessage(data.notified ? 'Сохранено. Клиент уведомлён в приложении и Telegram.' : 'Сохранено.');
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Не удалось сохранить'); }
     finally { setBusy(false); }
   }
@@ -75,7 +82,13 @@ export default function AdminAppointmentPage() {
       const data = await response.json();
       if (response.status === 403) { router.replace('/admin/login'); return; }
       if (!response.ok) throw new Error(data.error || 'CANCEL_FAILED');
-      setMessage('Запись отменена. Клиент уведомлён.'); setAppointment(current => current ? { ...current, status: 'CANCELLED' } : current);
+      const next = data.appointment as Appointment;
+      setAppointment(next);
+      setStatus(next.status);
+      setStarts(inputDateTime(next.starts_at));
+      setEnds(inputDateTime(next.ends_at));
+      setNote(next.notes || '');
+      setMessage('Запись отменена. Клиент уведомлён.');
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Не удалось отменить запись'); }
     finally { setBusy(false); }
   }
