@@ -7,13 +7,21 @@ import { usePathname } from 'next/navigation';
 export default function MobileNav() {
   const pathname = usePathname();
 
+  // Keep the customer bottom navigation isolated from screens that have their own
+  // navigation or a focused auth/account layout.
   const isPrivateAppArea =
-    pathname === '/auth' || pathname.startsWith('/auth/') ||
-    pathname === '/account' || pathname.startsWith('/account/') ||
-    pathname === '/admin' || pathname.startsWith('/admin/') ||
-    pathname === '/business' || pathname.startsWith('/business/') ||
-    pathname === '/telegram' || pathname.startsWith('/telegram/') ||
-    pathname === '/tg' || pathname.startsWith('/tg/');
+    pathname === '/auth' ||
+    pathname.startsWith('/auth/') ||
+    pathname === '/account' ||
+    pathname.startsWith('/account/') ||
+    pathname === '/admin' ||
+    pathname.startsWith('/admin/') ||
+    pathname === '/business' ||
+    pathname.startsWith('/business/') ||
+    pathname === '/telegram' ||
+    pathname.startsWith('/telegram/') ||
+    pathname === '/tg' ||
+    pathname.startsWith('/tg/');
 
   if (isPrivateAppArea) return null;
 
@@ -28,7 +36,7 @@ export default function MobileNav() {
         <small>Избранное</small>
       </Link>
       <Link href="/marketplace" className="nav-center" aria-label="Записаться">
-        <span className="nav-center-circle"><Plus size={24} /></span>
+        <Plus size={24} />
         <small>Записаться</small>
       </Link>
       <Link href="/notifications" className={pathname.startsWith('/notifications') ? 'active' : ''}>
