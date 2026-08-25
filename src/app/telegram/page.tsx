@@ -35,28 +35,38 @@ export default function TelegramMiniApp(){
  const current=upcoming[0] ?? null;
  const activeQueue=queue?.queue_entries?.filter(e=>['WAITING','CALLED','IN_SERVICE'].includes(e.status))??[];
 
- async function load(){
-   setLoading(true); setAuthError('');
+ async function load(options:{showLoading?:boolean}={}){
+   if(options.showLoading!==false) setLoading(true);
+   setAuthError('');
    try{
      const webApp=(window as Window & { Telegram?:{ WebApp?:TelegramWebApp } }).Telegram?.WebApp;
      if(!webApp?.initData){ setAuthError('Откройте STO NSK через Telegram-бота.'); setLoading(false); return; }
      await fetch('/api/telegram/auth',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({initData:webApp.initData})}).then(async r=>{if(!r.ok) throw new Error((await r.json()).error||'TELEGRAM_AUTH_FAILED')});
      const ap=await fetch('/api/me/appointments').then(r=>r.json());
      if(ap.error) throw new Error(ap.error);
-     setAppointments(ap.appointments??[]);
-     const active=(ap.appointments??[]).find((a:Appointment)=>['ARRIVED','IN_SERVICE'].includes(a.status));
+     const nextAppointments=(ap.appointments??[]) as Appointment[];
+     setAppointments(nextAppointments);
+     const active=nextAppointments.find(a=>['ARRIVED','IN_SERVICE'].includes(a.status));
      if(active?.business_id){
        const q=await fetch(`/api/queue?businessId=${encodeURIComponent(active.business_id)}`).then(r=>r.json());
        setQueue(q.queues?.[0]??null);
      }else setQueue(null);
-   }catch(error){ setAuthError(error instanceof Error?error.message:'Не удалось подключить Telegram-аккаунт.'); }
-   finally{ setLoading(false); }
+   }catch(error){
+     if(options.showLoading!==false || !appointments.length) setAuthError(error instanceof Error?error.message:'Не удалось подключить Telegram-аккаунт.');
+   }finally{ if(options.showLoading!==false) setLoading(false); }
  }
 
  useEffect(()=>{
    const webApp=(window as Window & { Telegram?:{ WebApp?:TelegramWebApp } }).Telegram?.WebApp;
    if(webApp){ webApp.ready(); webApp.expand(); setTg(webApp); }
    void load();
+   const refreshId=window.setInterval(()=>{ void load({showLoading:false}); },15000);
+   const onVisible=()=>{ if(document.visibilityState==='visible') void load({showLoading:false}); };
+   document.addEventListener('visibilitychange',onVisible);
+   return()=>{
+     window.clearInterval(refreshId);
+     document.removeEventListener('visibilitychange',onVisible);
+   };
  },[]);
 
  if(authError) return <main style={{minHeight:'100dvh',padding:18,fontFamily:'-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif'}}><div className="tg-card"><div className="tg-muted">STO NSK · Telegram</div><h1>Откройте приложение из бота</h1><p className="tg-muted">Telegram передаёт приложению данные авторизации только внутри Mini App.</p><a className="tg-btn" href="/marketplace">Открыть STO NSK Web</a></div></main>;
@@ -78,7 +88,7 @@ export default function TelegramMiniApp(){
 
      {!loading&&tab==='appointments'&&<section className="tg-card"><h2 style={{marginTop:0}}>Мои записи</h2>{appointments.length?appointments.map(a=><div className="tg-row" key={a.id}><div><strong>{a.business?.name||'СТО'}</strong><div className="tg-muted">{a.service?.service?.name||'Услуга'} · {a.car?.brand} {a.car?.model}</div><div className="tg-muted">{fmt(a.starts_at)}</div></div><span className="tg-status">{labels[a.status]||a.status}</span></div>):<div className="tg-muted">Записей пока нет.</div>}<a className="tg-btn" href="/marketplace" style={{marginTop:12}}>Новая запись</a></section>}
 
-     {!loading&&tab==='queue'&&<section className="tg-card"><div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><div><h2 style={{margin:0}}>Живая очередь</h2><div className="tg-muted">{queue?.mode||'—'} · обновляется при изменениях</div></div><span className="tg-status">{queue?.is_open?'Открыта':'Закрыта'}</span></div>{queue&&activeQueue.length?activeQueue.map(e=><div className="tg-queue-item" key={e.id}><div className="tg-position">#{e.position}</div><div><strong>{queueLabels[e.status]||e.status}</strong><div className="tg-muted">Ожидание {e.estimated_wait_minutes??'—'} мин</div></div><span className="tg-muted">{e.status==='IN_SERVICE'?'Сейчас':''}</span></div>):<div className="tg-muted" style={{marginTop:14}}>Активной очереди сейчас нет.</div>}</section>}
+     {!loading&&tab==='queue'&&<section className="tg-card"><div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><div><h2 style={{margin:0}}>Живая очередь</h2><div className="tg-muted">{queue?.mode||'—'} · обновляется автоматически</div></div><span className="tg-status">{queue?.is_open?'Открыта':'Закрыта'}</span></div>{queue&&activeQueue.length?activeQueue.map(e=><div className="tg-queue-item" key={e.id}><div className="tg-position">#{e.position}</div><div><strong>{queueLabels[e.status]||e.status}</strong><div className="tg-muted">Ожидание {e.estimated_wait_minutes??'—'} мин</div></div><span className="tg-muted">{e.status==='IN_SERVICE'?'Сейчас':''}</span></div>):<div className="tg-muted" style={{marginTop:14}}>Активной очереди сейчас нет.</div>}</section>}
 
      {!loading&&tab==='account'&&<section className="tg-card"><div className="tg-muted">Ваш аккаунт</div><h2 style={{margin:'4px 0 10px'}}>{tg?.initDataUnsafe?.user?.first_name||'Клиент STO NSK'}</h2><div className="tg-actions"><a className="tg-btn" href="/account">Полный кабинет</a><a className="tg-btn secondary" href="/account/history">История визитов</a></div></section>}
    </div>
