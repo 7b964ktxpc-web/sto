@@ -29,7 +29,7 @@ export default function MobileNav() {
         <Home size={20} />
         <small>Главная</small>
       </Link>
-      <Link href="/account" className={pathname.startsWith('/account') ? 'active' : ''}>
+      <Link href="/account#favorites" className={pathname.startsWith('/account') ? 'active' : ''}>
         <Heart size={20} />
         <small>Избранное</small>
       </Link>
