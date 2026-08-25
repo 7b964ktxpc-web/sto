@@ -27,7 +27,8 @@ const labels: Record<string, string> = {
   READY: 'Готов', COMPLETED: 'Завершена', CANCELLED: 'Отменена', NO_SHOW: 'Неявка',
 };
 const statuses = Object.keys(labels);
-const fmt = (value: string) => new Intl.DateTimeFormat('ru-RU', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+const TZ = 'Asia/Novosibirsk';
+const fmt = (value: string) => new Intl.DateTimeFormat('ru-RU', { timeZone: TZ, dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 
 export default function AdminAppointmentPage() {
   const { id } = useParams<{ id: string }>();
