@@ -37,6 +37,8 @@ type BookingResult = {
   };
 };
 
+type FavoriteRow = { business_id: string; business?: { id: string } | null };
+
 const BOOKING_INTENT_KEY = 'sto_booking_intent';
 const TZ = 'Asia/Novosibirsk';
 const today = new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date());
@@ -83,11 +85,72 @@ export default function Home() {
   const [bookingResult, setBookingResult] = useState<BookingResult | null>(null);
   const [error, setError] = useState('');
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [favoriteBusy, setFavoriteBusy] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     document.body.style.overflow = selected ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
   }, [selected]);
+
+  useEffect(() => {
+    fetch('/api/me/favorites')
+      .then(async response => {
+        if (response.status === 401) return null;
+        if (!response.ok) throw new Error('favorites');
+        return response.json() as Promise<{ favorites?: FavoriteRow[] }>;
+      })
+      .then(data => {
+        if (!data) return;
+        setFavorites(new Set((data.favorites ?? []).map(item => item.business_id)));
+      })
+      .catch(() => {
+        // Favorites are non-blocking for the marketplace and should never break the page.
+      });
+  }, []);
+
+  async function toggleFavorite(businessId: string) {
+    if (favoriteBusy.has(businessId)) return;
+    setError('');
+    setFavoriteBusy(prev => new Set(prev).add(businessId));
+    const wasFavorite = favorites.has(businessId);
+    setFavorites(prev => {
+      const next = new Set(prev);
+      wasFavorite ? next.delete(businessId) : next.add(businessId);
+      return next;
+    });
+    try {
+      const response = wasFavorite
+        ? await fetch(`/api/me/favorites?business_id=${encodeURIComponent(businessId)}`, { method: 'DELETE' })
+        : await fetch('/api/me/favorites', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ business_id: businessId }),
+          });
+      if (response.status === 401) {
+        setFavorites(prev => {
+          const next = new Set(prev);
+          wasFavorite ? next.add(businessId) : next.delete(businessId);
+          return next;
+        });
+        setError('Войдите, чтобы сохранять СТО в избранное.');
+      } else if (!response.ok) {
+        throw new Error('favorite');
+      }
+    } catch {
+      setFavorites(prev => {
+        const next = new Set(prev);
+        wasFavorite ? next.add(businessId) : next.delete(businessId);
+        return next;
+      });
+      setError('Не удалось обновить избранное. Попробуйте ещё раз.');
+    } finally {
+      setFavoriteBusy(prev => {
+        const next = new Set(prev);
+        next.delete(businessId);
+        return next;
+      });
+    }
+  }
 
   async function loadCars() {
     const r = await fetch('/api/me/cars');
@@ -264,7 +327,13 @@ export default function Home() {
               <article className="station-card" key={s.id}>
                 <div className="station-topline">
                   <span className="open-badge"><span className="open-dot" />Открыто</span>
-                  <button className={`favorite-button ${favorites.has(s.id) ? 'liked' : ''}`} onClick={() => setFavorites(prev => { const next = new Set(prev); next.has(s.id) ? next.delete(s.id) : next.add(s.id); return next; })} aria-label="Избранное"><Heart size={18} fill={favorites.has(s.id) ? 'currentColor' : 'none'} /></button>
+                  <button
+                    className={`favorite-button ${favorites.has(s.id) ? 'liked' : ''}`}
+                    onClick={() => void toggleFavorite(s.id)}
+                    disabled={favoriteBusy.has(s.id)}
+                    aria-label={favorites.has(s.id) ? 'Убрать из избранного' : 'Добавить в избранное'}
+                    aria-pressed={favorites.has(s.id)}
+                  ><Heart size={18} fill={favorites.has(s.id) ? 'currentColor' : 'none'} /></button>
                 </div>
                 <div className="station-main">
                   <div className="station-thumb" aria-hidden="true"><CarFront size={34} /></div>
