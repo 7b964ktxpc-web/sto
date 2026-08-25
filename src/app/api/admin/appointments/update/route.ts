@@ -30,6 +30,7 @@ export async function PATCH(request: Request) {
     await db.from('audit_logs').insert({ actor_user_id: auth.user.id, business_id: before.data.business_id, action, entity_type: 'appointment', entity_id: id, reason: 'Admin appointment update', metadata: { before: before.data, after: updated.data, patch } });
     const notificationType = patch.status === 'CANCELLED' ? 'BOOKING_CANCELLED' : (patch.starts_at ? 'BOOKING_CHANGED' : null);
     let notified = false;
+    let telegramSent = false;
     if (notificationType) {
       const title = notificationType === 'BOOKING_CANCELLED' ? 'Запись отменена' : 'Запись изменена';
       const bodyText = notificationType === 'BOOKING_CANCELLED'
@@ -43,17 +44,18 @@ export async function PATCH(request: Request) {
         payload: { appointment_id: id },
       }).select('id').maybeSingle();
       if (notification.error) throw notification.error;
+      notified = true;
 
       const telegramText = notificationType === 'BOOKING_CANCELLED'
         ? '🚗 STO NSK\nЗапись отменена администратором.'
         : `🚗 STO NSK\nЗапись изменена администратором.\nНовое время: ${new Intl.DateTimeFormat('ru-RU', { timeZone: 'Asia/Novosibirsk', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(String(updated.data.starts_at)))}`;
       const telegram = await sendTelegramToUser(before.data.user_id, telegramText);
-      notified = true;
+      telegramSent = telegram.sent;
       if (!telegram.sent) {
         console.warn('telegram appointment notification not sent', { userId: before.data.user_id, reason: telegram.reason });
       }
     }
-    return NextResponse.json({ appointment: updated.data, notified });
+    return NextResponse.json({ appointment: updated.data, notified, telegramSent });
   } catch (error) {
     console.error('admin appointment update', error);
     return NextResponse.json({ error: 'Не удалось изменить запись' }, { status: 503 });
