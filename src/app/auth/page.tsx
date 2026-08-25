@@ -4,9 +4,15 @@ import { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ArrowLeft, Lock, MessageCircle, UserRound } from 'lucide-react';
 
+function safeReturnTo(value: string | null) {
+  if (!value) return '/account';
+  if (!value.startsWith('/') || value.startsWith('//') || value.includes('://')) return '/account';
+  return value;
+}
+
 function AuthForm() {
   const searchParams = useSearchParams();
-  const returnTo = searchParams.get('returnTo') || '/account';
+  const returnTo = safeReturnTo(searchParams.get('returnTo'));
   const requestedMode = searchParams.get('mode');
   const isBookingReturn = returnTo.includes('marketplace');
   const [mode, setMode] = useState<'login' | 'signup'>(requestedMode === 'signup' ? 'signup' : 'login');
