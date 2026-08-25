@@ -28,8 +28,10 @@ const labels: Record<string, string> = {
 };
 const statuses = Object.keys(labels);
 const TZ = 'Asia/Novosibirsk';
+const NOVOSIBIRSK_OFFSET = '+07:00';
 const fmt = (value: string) => new Intl.DateTimeFormat('ru-RU', { timeZone: TZ, dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
-const inputDateTime = (value: string) => new Date(value).toISOString().slice(0, 16);
+const inputDateTime = (value: string) => new Intl.DateTimeFormat('sv-SE', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(value)).replace(' ', 'T');
+const parseAdminDateTime = (value: string) => new Date(`${value}:00${NOVOSIBIRSK_OFFSET}`);
 
 export default function AdminAppointmentPage() {
   const { id } = useParams<{ id: string }>();
@@ -55,7 +57,7 @@ export default function AdminAppointmentPage() {
   async function save(event: FormEvent) {
     event.preventDefault();
     setMessage(''); setError('');
-    const start = new Date(starts); const end = new Date(ends);
+    const start = parseAdminDateTime(starts); const end = parseAdminDateTime(ends);
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) { setError('Укажите корректные дату и время визита.'); return; }
     if (end <= start) { setError('Время окончания должно быть позже времени начала.'); return; }
     setBusy(true);
