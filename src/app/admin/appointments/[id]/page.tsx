@@ -72,7 +72,7 @@ export default function AdminAppointmentPage() {
       setStarts(inputDateTime(next.starts_at));
       setEnds(inputDateTime(next.ends_at));
       setNote(next.notes || '');
-      setMessage(data.notified ? 'Сохранено. Клиент уведомлён в приложении и Telegram.' : 'Сохранено.');
+      setMessage(data.telegramSent === false ? 'Сохранено. Уведомление в приложении записано, но Telegram не доставлен.' : data.notified ? 'Сохранено. Клиент уведомлён в приложении и Telegram.' : 'Сохранено.');
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Не удалось сохранить'); }
     finally { setBusy(false); }
   }
@@ -90,7 +90,7 @@ export default function AdminAppointmentPage() {
       setStarts(inputDateTime(next.starts_at));
       setEnds(inputDateTime(next.ends_at));
       setNote(next.notes || '');
-      setMessage('Запись отменена. Клиент уведомлён.');
+      setMessage(data.telegramSent === false ? 'Запись отменена. Уведомление в приложении записано, но Telegram не доставлен.' : 'Запись отменена. Клиент уведомлён.');
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Не удалось отменить запись'); }
     finally { setBusy(false); }
   }
@@ -102,7 +102,8 @@ export default function AdminAppointmentPage() {
       const data = await response.json();
       if (response.status === 403) { router.replace('/admin/login'); return; }
       if (!response.ok) throw new Error(data.error || 'NOTIFY_FAILED');
-      setMessage('Сообщение отправлено в приложение и Telegram.'); setNotifyMessage('');
+      setMessage(data.telegramSent === false ? 'Сообщение добавлено в кабинет клиента, но Telegram не доставлен.' : 'Сообщение отправлено в приложение и Telegram.');
+      setNotifyMessage('');
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Не удалось отправить уведомление'); }
     finally { setBusy(false); }
   }
@@ -123,7 +124,7 @@ export default function AdminAppointmentPage() {
         <section className="card" style={{ marginTop: 16 }}><h2>Изменить запись</h2><form onSubmit={save} className="form-stack"><label>Статус<select value={status} onChange={event => setStatus(event.target.value)}>{statuses.map(value => <option key={value} value={value}>{labels[value]}</option>)}</select></label><div className="two-columns"><label>Начало<input type="datetime-local" value={starts} onChange={event => setStarts(event.target.value)} /></label><label>Конец<input type="datetime-local" value={ends} onChange={event => setEnds(event.target.value)} /></label></div><label>Комментарий<textarea rows={4} value={note} onChange={event => setNote(event.target.value)} placeholder="Комментарий администратора" /></label>{message && <div className="card">{message}</div>}{error && <div className="card error">{error}</div>}<div className="actions"><button className="primary" type="submit" disabled={busy}>{busy ? 'Сохраняем…' : 'Сохранить изменения'}</button><button type="button" onClick={() => void cancel()} disabled={busy || status === 'CANCELLED'}>Отменить запись</button></div></form></section>
         <section className="card" style={{ marginTop: 16 }}><h2>Сообщение клиенту</h2><p className="muted">Сообщение появится в кабинете клиента и будет поставлено в Telegram-очередь отправки.</p><form onSubmit={sendNotification} className="form-stack"><label>Заголовок<input value={notifyTitle} onChange={event => setNotifyTitle(event.target.value)} /></label><label>Сообщение<textarea rows={5} maxLength={1000} required value={notifyMessage} onChange={event => setNotifyMessage(event.target.value)} placeholder="Например: пост освободился раньше, можете приехать на 30 минут раньше." /></label><button className="primary" type="submit" disabled={busy || !notifyMessage.trim()}>Отправить клиенту</button></form></section>
       </div>
-      <style jsx>{` .big-value{font-size:22px;font-weight:800}.form-stack{display:grid;gap:12px;margin-top:12px}.form-stack label{display:grid;gap:6px;font-weight:600}.form-stack input,.form-stack select,.form-stack textarea{width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid rgba(0,0,0,.12);border-radius:10px;background:#fff;font:inherit}.two-columns{display:grid;grid-template-columns:1fr 1fr;gap:12px}.actions{display:flex;gap:8px;flex-wrap:wrap}.actions button{padding:11px 14px;border-radius:10px;border:1px solid rgba(0,0,0,.12);background:#fff;font:inherit;font-weight:700;cursor:pointer}@media(max-width:700px){.two-columns{grid-template-columns:1fr}} `}</style>
+      <style jsx>{` .big-value{font-size:22px;font-weight:800}.form-stack{display:grid;gap:12px;margin-top:12px}.form-stack label{display:grid;gap:6px;font-weight:600}.form-stack input,.form-stack select,.form-stack textarea{width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid rgba(0,0,0,.12);border-radius:10px;background:#fff;font:inherit}.two-columns{display:grid;grid-template-columns:1fr 1fr;gap:12px}.actions{display:flex;gap:8px;flex-wrap:wrap}.actions button{padding:11px 14px;border-radius:10px;border:1px solid rgba(0,0,0,.12);background:#fff;font:inherit;font-weight:700;cursor:pointer}@media(max-width:700px){.two-columns{grid-template-columns:1fr}.actions{flex-direction:column}.actions button{width:100%;min-height:48px}} `}</style>
     </main>
   );
 }
